@@ -1,7 +1,7 @@
 import { ComfyApp } from '@comfyorg/comfyui-frontend-types'
 import React, { Suspense } from 'react'
 import ReactDOM from 'react-dom/client'
-import { useTranslation } from 'react-i18next'
+import { useTranslation } from '../node_modules/react-i18next'
 
 import './index.css'
 import './utils/i18n'

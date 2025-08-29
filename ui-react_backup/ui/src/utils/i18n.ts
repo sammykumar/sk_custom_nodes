@@ -1,7 +1,7 @@
 import i18n from 'i18next'
-import LanguageDetector from 'i18next-browser-languagedetector'
+import LanguageDetector from 'i18next-browser-languagedetector/cjs'
 import Backend from 'i18next-http-backend'
-import { initReactI18next } from 'react-i18next'
+import { initReactI18next } from '../../node_modules/react-i18next'
 
 // Define fallback translations for debugging
 interface TranslationResource {
