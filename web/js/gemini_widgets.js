@@ -86,15 +86,10 @@ app.registerExtension({
                 
                 // Set up compute size for proper layout
                 this.videoWidget.computeSize = function(width) {
-                    if (this.aspectRatio && !this.parentEl.hidden) {
-                        let height = (previewNode.size[0] - 20) / this.aspectRatio + 80; // Extra space for controls
-                        if (!(height > 0)) {
-                            height = 0;
-                        }
-                        this.computedHeight = height + 10;
-                        return [width, height];
-                    }
-                    return [width, 350]; // Default height when no video loaded
+                    // Always return a fixed height regardless of video aspect ratio
+                    // This prevents the node from resizing when video is loaded
+                    const fixedHeight = 350; // Fixed height for the widget container
+                    return [width, fixedHeight];
                 };
                 
                 // Add event listeners for canvas interaction
@@ -139,7 +134,10 @@ app.registerExtension({
                         loop
                         autoplay 
                         controls
-                        style="width: 100%;"
+                        style="
+                            width: 100%;
+                            background: #000;
+                        "
                     >
                         <source src="${videoUrl}" type="video/mp4">
                         Your browser does not support video playback.
@@ -200,11 +198,8 @@ app.registerExtension({
                     this.endTime = this.duration;
                     this.startTime = 0;
                     
-                    // Update widget aspect ratio for proper sizing
-                    if (this.videoWidget) {
-                        this.videoWidget.aspectRatio = this.videoElement.videoWidth / this.videoElement.videoHeight;
-                        this.setSize(this.computeSize());
-                    }
+                    // Don't update widget aspect ratio to prevent resizing
+                    // The video will maintain its aspect ratio using CSS object-fit: contain
                     
                     this.timeDisplay.textContent = `Duration: ${this.duration.toFixed(1)}s`;
                     console.log(`Video loaded: ${this.duration}s duration`);

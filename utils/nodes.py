@@ -7,6 +7,7 @@ import cv2
 import tempfile
 import os
 import base64
+import subprocess
 
 class GeminiVideoDescribe:
     """
@@ -46,9 +47,6 @@ class GeminiVideoDescribe:
                 }),
             },
             "optional": {
-                "images": ("IMAGE", {
-                    "tooltip": "Optional: IMAGE input from VideoHelperSuite nodes"
-                }),
                 "frame_rate": ("FLOAT", {
                     "default": 24.0,
                     "min": 1.0,
@@ -70,8 +68,8 @@ class GeminiVideoDescribe:
             }
         }
                 
-    RETURN_TYPES = ("STRING", "STRING", "STRING")
-    RETURN_NAMES = ("description", "video_info", "gemini_status")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("description", "video_info", "gemini_status", "trimmed_video_path")
     FUNCTION = "describe_video"
     CATEGORY = "Gemini"
     
@@ -84,7 +82,6 @@ class GeminiVideoDescribe:
             output_path: Path to output trimmed video file
             duration: Duration in seconds from the beginning
         """
-        import subprocess
         
         try:
             # Use ffmpeg to trim the video from the beginning
@@ -123,23 +120,23 @@ class GeminiVideoDescribe:
             print("FFmpeg not found. Please install ffmpeg to use duration trimming.")
             return False
     
-    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, images=None, frame_rate=24.0, uploaded_video_file="", max_duration=0.0):
+    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, frame_rate=24.0, uploaded_video_file="", max_duration=0.0):
         """
-        Process video (either from IMAGE tensor or uploaded file) and analyze with Gemini
+        Process uploaded video file and analyze with Gemini
         
         Args:
             gemini_api_key: Your Gemini API key
             gemini_model: Gemini model to use
             system_prompt: System context for the AI
             user_prompt: User's specific request
-            images: Optional IMAGE tensor from VideoHelperSuite (shape: [frames, height, width, channels])
-            frame_rate: Frame rate for temporary video (when processing IMAGE input)
+            frame_rate: Frame rate for temporary video (legacy parameter, not used)
             uploaded_video_file: Path to uploaded video file
             max_duration: Maximum duration in seconds (0 = use full video)
         """
         try:
             video_data = None
             video_info_text = ""
+            trimmed_video_output_path = ""  # Track the output path for trimmed video
             
             # Check if we have an uploaded video file
             if uploaded_video_file and uploaded_video_file.strip():
@@ -185,21 +182,22 @@ class GeminiVideoDescribe:
                             if self._trim_video(video_path, trimmed_video_path, actual_duration):
                                 final_video_path = trimmed_video_path
                                 trimmed = True
+                                # Store the trimmed video path for output
+                                trimmed_video_output_path = trimmed_video_path
                             else:
                                 # If trimming fails, use original video but warn user
                                 print(f"Warning: Could not trim video. Using original video for {actual_duration:.2f}s")
                                 actual_duration = original_duration
+                                trimmed_video_output_path = video_path
+                        else:
+                            # No trimming needed, use original video path
+                            trimmed_video_output_path = video_path
                         
                         # Read the final video file (original or trimmed)
                         with open(final_video_path, 'rb') as video_file:
                             video_data = video_file.read()
                         
-                        # Clean up temporary trimmed file if created
-                        if trimmed and final_video_path != video_path:
-                            try:
-                                os.unlink(final_video_path)
-                            except OSError:
-                                pass  # Ignore cleanup errors
+                        # Note: We do NOT clean up the trimmed video file since we want to output its path
                         
                         file_size = len(video_data) / 1024 / 1024  # Size in MB
                         
@@ -224,97 +222,8 @@ class GeminiVideoDescribe:
                 except Exception as e:
                     raise RuntimeError(f"Failed to process uploaded video: {str(e)}")
             
-            elif images is not None:
-                # Process IMAGE tensor input (existing functionality)
-                # Convert ComfyUI IMAGE tensor to numpy array
-                # ComfyUI images are in format [frames, height, width, channels] with values 0-1
-                if isinstance(images, torch.Tensor):
-                    frames_np = images.cpu().numpy()
-                else:
-                    frames_np = np.array(images)
-                
-                # Convert from 0-1 range to 0-255 and ensure uint8
-                frames_np = (frames_np * 255).astype(np.uint8)
-                
-                # Get video dimensions
-                num_frames, height, width, channels = frames_np.shape
-                original_frames = num_frames  # Store original count
-                original_duration = num_frames / frame_rate
-                
-                # Apply duration trimming if specified (starting from beginning)
-                start_frame = 0  # Always start from the beginning
-                
-                if max_duration > 0:
-                    # Calculate end frame based on max_duration
-                    duration_frames = int(max_duration * frame_rate)
-                    end_frame = min(duration_frames, num_frames)
-                else:
-                    # Use all frames
-                    end_frame = num_frames
-                
-                # Trim the frames array
-                if end_frame < num_frames:
-                    frames_np = frames_np[start_frame:end_frame]
-                    num_frames = frames_np.shape[0]
-                    trimmed = True
-                    actual_start_time = 0.0
-                    actual_duration = num_frames / frame_rate
-                else:
-                    trimmed = False
-                    actual_start_time = 0.0
-                    actual_duration = original_duration
-                
-                # Create temporary video file
-                with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
-                    temp_video_path = temp_file.name
-                
-                # Initialize video writer
-                fourcc = cv2.VideoWriter_fourcc(*'mp4v')
-                video_writer = cv2.VideoWriter(temp_video_path, fourcc, frame_rate, (width, height))
-                
-                if not video_writer.isOpened():
-                    raise RuntimeError("Failed to open video writer")
-                
-                # Write frames to video
-                for i in range(num_frames):
-                    frame = frames_np[i]
-                    # Convert RGB to BGR for OpenCV
-                    if channels == 3:
-                        frame_bgr = cv2.cvtColor(frame, cv2.COLOR_RGB2BGR)
-                    else:
-                        frame_bgr = frame[:, :, :3]  # Drop alpha if present
-                        frame_bgr = cv2.cvtColor(frame_bgr, cv2.COLOR_RGB2BGR)
-                    
-                    video_writer.write(frame_bgr)
-                
-                video_writer.release()
-                
-                # Read the temporary video file
-                with open(temp_video_path, 'rb') as video_file:
-                    video_data = video_file.read()
-                
-                # Clean up temporary file
-                os.unlink(temp_video_path)
-                
-                file_size = len(video_data) / 1024 / 1024  # Size in MB
-                
-                # Update video info to include trimming details
-                end_time = actual_duration  # Since we start from 0
-                trim_info = f" (trimmed: 0.0s → {end_time:.1f}s)" if trimmed else ""
-                
-                video_info_text = f"""📹 Video Processing Info (IMAGE Input):
-• Original Frames: {original_frames}
-• Processed Frames: {num_frames}
-• Start Time: 0.0 seconds
-• End Time: {end_time:.2f} seconds
-• Original Duration: {original_duration:.2f} seconds
-• Processed Duration: {actual_duration:.2f} seconds{trim_info}
-• Frame Rate: {frame_rate} FPS
-• Resolution: {width}x{height}
-• File Size: {file_size:.2f} MB"""
-            
             else:
-                raise ValueError("No video input provided. Either connect IMAGE input or upload a video file using the upload button.")
+                raise ValueError("No video input provided. Please upload a video file using the upload button.")
             
             if video_data is None:
                 raise RuntimeError("Failed to process video data")
@@ -355,7 +264,7 @@ class GeminiVideoDescribe:
                 config=generate_content_config,
             )
             
-            # Format the three separate outputs
+            # Format the four separate outputs
             
             # 1. Description - Clean output from Gemini (for direct use as prompt)
             description = response.text.strip()
@@ -368,10 +277,13 @@ class GeminiVideoDescribe:
 • Model: {gemini_model}
 • API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}"""
             
-            return (description, video_info, gemini_status)
+            # 4. Trimmed Video Path - Path to the processed video file
+            trimmed_video_path = trimmed_video_output_path
+            
+            return (description, video_info, gemini_status, trimmed_video_path)
             
         except Exception as e:
-            # Handle errors gracefully with three separate outputs
+            # Handle errors gracefully with four separate outputs
             
             # 1. Description - Error message (still usable as text, though not ideal)
             description = f"Error: Video analysis failed - {str(e)}"
@@ -379,8 +291,8 @@ class GeminiVideoDescribe:
             # 2. Video Info - What we know about the input
             video_info = f"""📹 Video Processing Info:
 • Status: ❌ Processing Failed
-• Input Type: {'Uploaded File' if uploaded_video_file and uploaded_video_file.strip() else 'IMAGE Tensor' if images is not None else 'None'}
-• Frame Rate: {frame_rate if images is not None else 'N/A'} FPS
+• Input Type: {'Uploaded File' if uploaded_video_file and uploaded_video_file.strip() else 'None'}
+• Frame Rate: {frame_rate} FPS (legacy parameter)
 • Max Duration: {max_duration if max_duration > 0 else 'Full Video'} seconds"""
             
             # 3. Gemini Status - Error details
@@ -391,11 +303,14 @@ class GeminiVideoDescribe:
 
 Please check:
 1. API key is valid and has quota
-2. Video file is uploaded or IMAGE input is connected
+2. Video file is uploaded using the upload button
 3. Internet connectivity
 4. Model supports video analysis"""
             
-            return (description, video_info, gemini_status)
+            # 4. Trimmed Video Path - Empty on error
+            trimmed_video_path = ""
+            
+            return (description, video_info, gemini_status, trimmed_video_path)
 
 
 # A dictionary that contains all nodes you want to export with their names
