@@ -60,6 +60,13 @@ class GeminiVideoDescribe:
                     "default": "",
                     "tooltip": "Path to uploaded video file (managed by upload widget)"
                 }),
+                "max_duration": ("FLOAT", {
+                    "default": 0.0,
+                    "min": 0.0,
+                    "max": 300.0,
+                    "step": 0.1,
+                    "tooltip": "Maximum duration in seconds (0 = use full video)"
+                }),
             }
         }
                 
@@ -68,7 +75,55 @@ class GeminiVideoDescribe:
     FUNCTION = "describe_video"
     CATEGORY = "Gemini"
     
-    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, images=None, frame_rate=24.0, uploaded_video_file=""):
+    def _trim_video(self, input_path, output_path, max_duration):
+        """
+        Trim video to specified duration using ffmpeg
+        
+        Args:
+            input_path: Path to input video file
+            output_path: Path to output trimmed video file
+            max_duration: Maximum duration in seconds
+        """
+        import subprocess
+        
+        try:
+            # Use ffmpeg to trim the video
+            cmd = [
+                'ffmpeg',
+                '-i', input_path,
+                '-t', str(max_duration),
+                '-c', 'copy',  # Copy streams without re-encoding for speed
+                '-avoid_negative_ts', 'make_zero',
+                '-y',  # Overwrite output file if it exists
+                output_path
+            ]
+            
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            print(f"FFmpeg error: {e.stderr}")
+            # Fallback: try with re-encoding if copy fails
+            try:
+                cmd = [
+                    'ffmpeg',
+                    '-i', input_path,
+                    '-t', str(max_duration),
+                    '-c:v', 'libx264',
+                    '-c:a', 'aac',
+                    '-y',
+                    output_path
+                ]
+                subprocess.run(cmd, capture_output=True, text=True, check=True)
+                return True
+            except subprocess.CalledProcessError as e2:
+                print(f"FFmpeg re-encoding also failed: {e2.stderr}")
+                return False
+        except FileNotFoundError:
+            print("FFmpeg not found. Please install ffmpeg to use duration trimming.")
+            return False
+    
+    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, images=None, frame_rate=24.0, uploaded_video_file="", max_duration=0.0):
         """
         Process video (either from IMAGE tensor or uploaded file) and analyze with Gemini
         
@@ -80,6 +135,7 @@ class GeminiVideoDescribe:
             images: Optional IMAGE tensor from VideoHelperSuite (shape: [frames, height, width, channels])
             frame_rate: Frame rate for temporary video (when processing IMAGE input)
             uploaded_video_file: Path to uploaded video file
+            max_duration: Maximum duration in seconds (0 = use full video)
         """
         try:
             video_data = None
@@ -100,28 +156,59 @@ class GeminiVideoDescribe:
                     video_path = os.path.join(input_dir, uploaded_video_file)
                     
                     if os.path.exists(video_path):
-                        # Read the uploaded video file
-                        with open(video_path, 'rb') as video_file:
-                            video_data = video_file.read()
-                        
-                        # Get video info using OpenCV
+                        # Get original video info using OpenCV
                         cap = cv2.VideoCapture(video_path)
                         frame_count = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
                         fps = cap.get(cv2.CAP_PROP_FPS)
                         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
                         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-                        duration = frame_count / fps if fps > 0 else 0
+                        original_duration = frame_count / fps if fps > 0 else 0
                         cap.release()
+                        
+                        # Determine the video file to use for analysis
+                        final_video_path = video_path
+                        actual_duration = original_duration
+                        trimmed = False
+                        
+                        # Check if we need to trim the video
+                        if max_duration > 0 and original_duration > max_duration:
+                            # Create a temporary trimmed video file
+                            with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
+                                trimmed_video_path = temp_file.name
+                            
+                            # Attempt to trim the video
+                            if self._trim_video(video_path, trimmed_video_path, max_duration):
+                                final_video_path = trimmed_video_path
+                                actual_duration = max_duration
+                                trimmed = True
+                            else:
+                                # If trimming fails, use original video but warn user
+                                print(f"Warning: Could not trim video. Using original duration of {original_duration:.2f}s")
+                        
+                        # Read the final video file (original or trimmed)
+                        with open(final_video_path, 'rb') as video_file:
+                            video_data = video_file.read()
+                        
+                        # Clean up temporary trimmed file if created
+                        if trimmed and final_video_path != video_path:
+                            try:
+                                os.unlink(final_video_path)
+                            except OSError:
+                                pass  # Ignore cleanup errors
                         
                         file_size = len(video_data) / 1024 / 1024  # Size in MB
                         
+                        # Update video info to include trimming details
+                        trim_info = f" (trimmed from {original_duration:.2f}s)" if trimmed else ""
+                        
                         video_info_text = f"""📹 Video Processing Info (Uploaded File):
 • File: {os.path.basename(uploaded_video_file)}
+• Original Duration: {original_duration:.2f} seconds
+• Processed Duration: {actual_duration:.2f} seconds{trim_info}
 • Frames: {frame_count}
 • Frame Rate: {fps:.2f} FPS
 • Resolution: {width}x{height}
-• File Size: {file_size:.2f} MB
-• Duration: {duration:.2f} seconds"""
+• File Size: {file_size:.2f} MB"""
                         
                     else:
                         raise FileNotFoundError(f"Uploaded video file not found: {video_path}")
@@ -141,12 +228,25 @@ class GeminiVideoDescribe:
                 # Convert from 0-1 range to 0-255 and ensure uint8
                 frames_np = (frames_np * 255).astype(np.uint8)
                 
+                # Get video dimensions
+                num_frames, height, width, channels = frames_np.shape
+                original_duration = num_frames / frame_rate
+                
+                # Apply duration trimming if specified
+                if max_duration > 0 and original_duration > max_duration:
+                    # Calculate how many frames to keep
+                    max_frames = int(max_duration * frame_rate)
+                    frames_np = frames_np[:max_frames]
+                    num_frames = max_frames
+                    actual_duration = max_duration
+                    trimmed = True
+                else:
+                    actual_duration = original_duration
+                    trimmed = False
+                
                 # Create temporary video file
                 with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
                     temp_video_path = temp_file.name
-                
-                # Get video dimensions
-                num_frames, height, width, channels = frames_np.shape
                 
                 # Initialize video writer
                 fourcc = cv2.VideoWriter_fourcc(*'mp4v')
@@ -178,12 +278,17 @@ class GeminiVideoDescribe:
                 
                 file_size = len(video_data) / 1024 / 1024  # Size in MB
                 
+                # Update video info to include trimming details
+                trim_info = f" (trimmed from {original_duration:.2f}s)" if trimmed else ""
+                
                 video_info_text = f"""📹 Video Processing Info (IMAGE Input):
-• Frames: {num_frames}
+• Original Frames: {frames_np.shape[0] if trimmed else num_frames}
+• Processed Frames: {num_frames}
+• Original Duration: {original_duration:.2f} seconds
+• Processed Duration: {actual_duration:.2f} seconds{trim_info}
 • Frame Rate: {frame_rate} FPS
 • Resolution: {width}x{height}
-• File Size: {file_size:.2f} MB
-• Duration: {num_frames/frame_rate:.2f} seconds"""
+• File Size: {file_size:.2f} MB"""
             
             else:
                 raise ValueError("No video input provided. Either connect IMAGE input or upload a video file using the upload button.")
@@ -251,8 +356,9 @@ class GeminiVideoDescribe:
             # 2. Video Info - What we know about the input
             video_info = f"""📹 Video Processing Info:
 • Status: ❌ Processing Failed
-• Input Type: {'Uploaded File' if hasattr(self, 'uploadedVideoFile') and self.uploadedVideoFile else 'IMAGE Tensor' if images is not None else 'None'}
-• Frame Rate: {frame_rate if images is not None else 'N/A'} FPS"""
+• Input Type: {'Uploaded File' if uploaded_video_file and uploaded_video_file.strip() else 'IMAGE Tensor' if images is not None else 'None'}
+• Frame Rate: {frame_rate if images is not None else 'N/A'} FPS
+• Max Duration: {max_duration if max_duration > 0 else 'Full Video'} seconds"""
             
             # 3. Gemini Status - Error details
             gemini_status = f"""🤖 Gemini Analysis Status: ❌ Failed
