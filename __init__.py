@@ -3,9 +3,10 @@ import server
 from aiohttp import web
 import folder_paths
 import nodes
+from .utils.nodes import NODE_CLASS_MAPPINGS
+from .utils.nodes import NODE_DISPLAY_NAME_MAPPINGS
 
-NODE_CLASS_MAPPINGS = {}
-__all__ = ["NODE_CLASS_MAPPINGS"]
+__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
 
 # Define the path to our extension
 workspace_path = os.path.dirname(__file__)
