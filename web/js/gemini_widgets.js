@@ -48,19 +48,48 @@ app.registerExtension({
                 return result;
             };
             
+            // Method to clear previous video preview
+            nodeType.prototype.clearVideoPreview = function() {
+                // Stop and clear existing video element
+                if (this.videoElement) {
+                    this.videoElement.pause();
+                    this.videoElement.src = '';
+                    this.videoElement.load(); // Reset the video element
+                    this.videoElement = null;
+                }
+                
+                // Clear DOM references
+                this.timeDisplay = null;
+                this.scrubberContainer = null;
+                
+                // Remove existing video widget if any
+                if (this.videoWidget) {
+                    // Remove DOM element if it exists
+                    if (this.videoWidget.parentEl && this.videoWidget.parentEl.parentNode) {
+                        this.videoWidget.parentEl.parentNode.removeChild(this.videoWidget.parentEl);
+                    }
+                    
+                    const widgetIndex = this.widgets.indexOf(this.videoWidget);
+                    if (widgetIndex !== -1) {
+                        this.widgets.splice(widgetIndex, 1);
+                    }
+                    this.videoWidget = null;
+                }
+                
+                // Reset video properties
+                this.duration = 0;
+                this.startTime = 0;
+                this.endTime = 0;
+            };
+            
             // Method to show video preview as DOM widget (VHS approach)
             nodeType.prototype.showVideoPreview = function() {
                 if (!this.uploadedVideoFile || !this.uploadedVideoSubfolder) {
                     return;
                 }
                 
-                // Remove existing video widget if any
-                if (this.videoWidget) {
-                    const widgetIndex = this.widgets.indexOf(this.videoWidget);
-                    if (widgetIndex !== -1) {
-                        this.widgets.splice(widgetIndex, 1);
-                    }
-                }
+                // Clear any existing video preview first
+                this.clearVideoPreview();
                 
                 // Create video preview HTML
                 const videoUrl = `/view?filename=${this.uploadedVideoFile}&subfolder=${this.uploadedVideoSubfolder}&type=input&t=${Date.now()}`;
@@ -247,6 +276,21 @@ app.registerExtension({
             nodeType.prototype.onUploadButtonPressed = function() {
                 console.log("Upload button pressed!");
                 
+                // Clear any existing video preview immediately
+                this.clearVideoPreview();
+                
+                // Reset video info widget
+                this.videoInfoWidget.value = "No video selected";
+                
+                // Clear stored video file info
+                this.uploadedVideoFile = null;
+                this.uploadedVideoSubfolder = null;
+                
+                // Clear hidden widget if it exists
+                if (this.videoFileWidget) {
+                    this.videoFileWidget.value = "";
+                }
+                
                 // Create file input element
                 const fileInput = document.createElement("input");
                 fileInput.type = "file";
@@ -255,7 +299,10 @@ app.registerExtension({
                 
                 fileInput.onchange = async (event) => {
                     const file = event.target.files[0];
-                    if (!file) return;
+                    if (!file) {
+                        // User cancelled, keep cleared state
+                        return;
+                    }
                     
                     // Validate file type
                     if (!file.type.startsWith('video/')) {
@@ -322,7 +369,17 @@ app.registerExtension({
                         
                     } catch (error) {
                         console.error("Upload error:", error);
+                        
+                        // Clear everything on error
+                        this.clearVideoPreview();
                         this.videoInfoWidget.value = "Upload failed";
+                        this.uploadedVideoFile = null;
+                        this.uploadedVideoSubfolder = null;
+                        
+                        if (this.videoFileWidget) {
+                            this.videoFileWidget.value = "";
+                        }
+                        
                         app.ui.dialog.show(`Upload failed: ${error.message}`);
                     }
                     
