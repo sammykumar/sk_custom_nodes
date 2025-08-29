@@ -48,11 +48,11 @@ export default defineConfig(({ mode }) => ({
         main: path.resolve(__dirname, 'src/main.tsx'),
       },
       output: {
-        // Output to the dist/example_ext directory
-        dir: '../dist',
-        entryFileNames: 'example_ext/[name].js',
-        chunkFileNames: 'example_ext/[name]-[hash].js',
-        assetFileNames: 'example_ext/[name][extname]',
+        // Output to the web/js directory
+        dir: '../web/js',
+        entryFileNames: 'gemini_video_trimmer/[name].js',
+        chunkFileNames: 'gemini_video_trimmer/[name]-[hash].js',
+        assetFileNames: 'gemini_video_trimmer/[name][extname]',
         // Split React into a separate vendor chunk for better caching
         manualChunks: {
           'vendor': ['react', 'react-dom'],

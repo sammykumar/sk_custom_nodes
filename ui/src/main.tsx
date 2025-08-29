@@ -72,16 +72,16 @@ async function initializeExtension(): Promise<void> {
 
     // Register the sidebar tab using ComfyUI's extension API
     const sidebarTab = {
-      id: 'comfyui-react-example',
-      icon: 'pi pi-code', // Using PrimeVue icon
-      title: 'React Example',
-      tooltip: 'React Example Extension',
+      id: 'comfyui-gemini-video-trimmer',
+      icon: 'pi pi-video', // Using PrimeVue icon
+      title: 'Gemini Video Trimmer',
+      tooltip: 'Gemini Video Trimmer Extension',
       type: 'custom' as const,
       render: (element: HTMLElement) => {
         console.log('Rendering React Example Extension')
         // Create a container for our React app
         const container = document.createElement('div')
-        container.id = 'comfyui-react-example-root'
+        container.id = 'comfyui-gemini-video-trimmer-root'
         container.style.height = '100%'
         element.appendChild(container)
 
@@ -100,7 +100,7 @@ async function initializeExtension(): Promise<void> {
 
     // Register extension with about page badges
     window.app.registerExtension({
-      name: 'ReactExtensionExample',
+      name: 'GeminiVideoTrimmerExtension',
       // About Panel Badges API - Adds custom badges to the ComfyUI about page
       aboutPageBadges: [
         {
@@ -123,13 +123,13 @@ async function initializeExtension(): Promise<void> {
       // Bottom Panel Tabs API - Adds custom tabs to the bottom panel
       bottomPanelTabs: [
         {
-          id: 'react-example-tab',
-          title: 'React Example Tab',
+          id: 'gemini-video-tab',
+          title: 'Gemini Video Trimmer',
           type: 'custom',
           render: (el) => {
             // Create a container for our React content
             const container = document.createElement('div')
-            container.id = 'react-example-bottom-tab'
+            container.id = 'gemini-video-bottom-tab'
             container.style.padding = '10px'
             el.appendChild(container)
 
@@ -139,8 +139,8 @@ async function initializeExtension(): Promise<void> {
 
               return (
                 <div style={{ padding: '10px' }}>
-                  <h3>React Example Bottom Panel</h3>
-                  <p>This is a demo of the Bottom Panel Tabs API.</p>
+                  <h3>Gemini Video Trimmer Bottom Panel</h3>
+                  <p>This is a demo of the Bottom Panel Tabs API for video trimming.</p>
                   <p>Count: {count}</p>
                   <button
                     onClick={() => setCount(count + 1)}
@@ -172,24 +172,24 @@ async function initializeExtension(): Promise<void> {
       // Commands and Keybindings API - Register custom commands with keyboard shortcuts
       commands: [
         {
-          id: 'reactExample.showInfo',
-          label: 'Show React Example Info',
+          id: 'geminiVideo.showInfo',
+          label: 'Show Gemini Video Info',
           function: () => {
             alert(
-              'React Example Extension - This command was triggered by the Commands API'
+              'Gemini Video Trimmer Extension - This command was triggered by the Commands API'
             )
           }
         },
         {
-          id: 'reactExample.runWorkflow',
-          label: 'Run Workflow from React Example',
+          id: 'geminiVideo.runWorkflow',
+          label: 'Run Workflow from Gemini Video',
           function: () => {
             void window.app?.queuePrompt(0) // Pass 0 as default prompt number
           }
         },
         {
-          id: 'reactExample.clearWorkflow',
-          label: 'Clear Workflow from React Example',
+          id: 'geminiVideo.clearWorkflow',
+          label: 'Clear Workflow from Gemini Video',
           function: () => {
             if (confirm('Clear the current workflow? This cannot be undone.')) {
               window.app?.graph.clear()
@@ -202,15 +202,15 @@ async function initializeExtension(): Promise<void> {
       keybindings: [
         {
           combo: { key: 'i', ctrl: true, alt: true },
-          commandId: 'reactExample.showInfo'
+          commandId: 'geminiVideo.showInfo'
         },
         {
           combo: { key: 'r', ctrl: true, alt: true },
-          commandId: 'reactExample.runWorkflow'
+          commandId: 'geminiVideo.runWorkflow'
         },
         {
           combo: { key: 'Delete', ctrl: true, alt: true },
-          commandId: 'reactExample.clearWorkflow'
+          commandId: 'geminiVideo.clearWorkflow'
         }
       ],
 
@@ -218,24 +218,24 @@ async function initializeExtension(): Promise<void> {
       menuCommands: [
         {
           // Add commands to the Extensions menu
-          path: ['Extensions', 'React Example'],
+          path: ['Extensions', 'Gemini Video Trimmer'],
           commands: [
-            'reactExample.showInfo',
-            'reactExample.runWorkflow',
-            'reactExample.clearWorkflow'
+            'geminiVideo.showInfo',
+            'geminiVideo.runWorkflow',
+            'geminiVideo.clearWorkflow'
           ]
         },
         {
-          // Create a submenu under Extensions > React Example
-          path: ['Extensions', 'React Example', 'Advanced'],
-          commands: ['reactExample.showInfo']
+          // Create a submenu under Extensions > Gemini Video Trimmer
+          path: ['Extensions', 'Gemini Video Trimmer', 'Advanced'],
+          commands: ['geminiVideo.showInfo']
         }
       ]
     })
 
-    console.log('React Example Extension initialized successfully')
+    console.log('Gemini Video Trimmer Extension initialized successfully')
   } catch (error) {
-    console.error('Failed to initialize React Example Extension:', error)
+    console.error('Failed to initialize Gemini Video Trimmer Extension:', error)
   }
 }
 
