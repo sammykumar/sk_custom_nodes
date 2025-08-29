@@ -67,6 +67,13 @@ class GeminiVideoDescribe:
                     "step": 0.1,
                     "tooltip": "Maximum duration in seconds (0 = use full video)"
                 }),
+                "start_time": ("FLOAT", {
+                    "default": 0.0,
+                    "min": 0.0,
+                    "max": 300.0,
+                    "step": 0.1,
+                    "tooltip": "Start time in seconds for video analysis"
+                }),
             }
         }
                 
@@ -75,14 +82,15 @@ class GeminiVideoDescribe:
     FUNCTION = "describe_video"
     CATEGORY = "Gemini"
     
-    def _trim_video(self, input_path, output_path, max_duration):
+    def _trim_video(self, input_path, output_path, start_time, duration):
         """
-        Trim video to specified duration using ffmpeg
+        Trim video to specified start time and duration using ffmpeg
         
         Args:
             input_path: Path to input video file
             output_path: Path to output trimmed video file
-            max_duration: Maximum duration in seconds
+            start_time: Start time in seconds
+            duration: Duration in seconds
         """
         import subprocess
         
@@ -91,7 +99,8 @@ class GeminiVideoDescribe:
             cmd = [
                 'ffmpeg',
                 '-i', input_path,
-                '-t', str(max_duration),
+                '-ss', str(start_time),  # Start time
+                '-t', str(duration),     # Duration
                 '-c', 'copy',  # Copy streams without re-encoding for speed
                 '-avoid_negative_ts', 'make_zero',
                 '-y',  # Overwrite output file if it exists
@@ -108,7 +117,8 @@ class GeminiVideoDescribe:
                 cmd = [
                     'ffmpeg',
                     '-i', input_path,
-                    '-t', str(max_duration),
+                    '-ss', str(start_time),
+                    '-t', str(duration),
                     '-c:v', 'libx264',
                     '-c:a', 'aac',
                     '-y',
@@ -123,7 +133,7 @@ class GeminiVideoDescribe:
             print("FFmpeg not found. Please install ffmpeg to use duration trimming.")
             return False
     
-    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, images=None, frame_rate=24.0, uploaded_video_file="", max_duration=0.0):
+    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, images=None, frame_rate=24.0, uploaded_video_file="", max_duration=0.0, start_time=0.0):
         """
         Process video (either from IMAGE tensor or uploaded file) and analyze with Gemini
         
@@ -136,6 +146,7 @@ class GeminiVideoDescribe:
             frame_rate: Frame rate for temporary video (when processing IMAGE input)
             uploaded_video_file: Path to uploaded video file
             max_duration: Maximum duration in seconds (0 = use full video)
+            start_time: Start time in seconds for video analysis
         """
         try:
             video_data = None
@@ -167,23 +178,29 @@ class GeminiVideoDescribe:
                         
                         # Determine the video file to use for analysis
                         final_video_path = video_path
-                        actual_duration = original_duration
+                        actual_start_time = start_time
+                        actual_duration = original_duration - start_time
                         trimmed = False
                         
-                        # Check if we need to trim the video
-                        if max_duration > 0 and original_duration > max_duration:
+                        # Calculate end time and duration
+                        if max_duration > 0:
+                            actual_duration = min(max_duration, original_duration - start_time)
+                        
+                        # Check if we need to trim the video (either start time or duration limit)
+                        if start_time > 0 or (max_duration > 0 and actual_duration < (original_duration - start_time)):
                             # Create a temporary trimmed video file
                             with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
                                 trimmed_video_path = temp_file.name
                             
                             # Attempt to trim the video
-                            if self._trim_video(video_path, trimmed_video_path, max_duration):
+                            if self._trim_video(video_path, trimmed_video_path, start_time, actual_duration):
                                 final_video_path = trimmed_video_path
-                                actual_duration = max_duration
                                 trimmed = True
                             else:
                                 # If trimming fails, use original video but warn user
-                                print(f"Warning: Could not trim video. Using original duration of {original_duration:.2f}s")
+                                print(f"Warning: Could not trim video. Using original video from {start_time}s for {actual_duration:.2f}s")
+                                actual_start_time = 0  # Reset since we're using original
+                                actual_duration = original_duration
                         
                         # Read the final video file (original or trimmed)
                         with open(final_video_path, 'rb') as video_file:
@@ -199,11 +216,14 @@ class GeminiVideoDescribe:
                         file_size = len(video_data) / 1024 / 1024  # Size in MB
                         
                         # Update video info to include trimming details
-                        trim_info = f" (trimmed from {original_duration:.2f}s)" if trimmed else ""
+                        end_time = actual_start_time + actual_duration
+                        trim_info = f" (trimmed: {actual_start_time:.1f}s → {end_time:.1f}s)" if trimmed else ""
                         
                         video_info_text = f"""📹 Video Processing Info (Uploaded File):
 • File: {os.path.basename(uploaded_video_file)}
 • Original Duration: {original_duration:.2f} seconds
+• Start Time: {actual_start_time:.2f} seconds
+• End Time: {end_time:.2f} seconds
 • Processed Duration: {actual_duration:.2f} seconds{trim_info}
 • Frames: {frame_count}
 • Frame Rate: {fps:.2f} FPS
@@ -230,19 +250,32 @@ class GeminiVideoDescribe:
                 
                 # Get video dimensions
                 num_frames, height, width, channels = frames_np.shape
+                original_frames = num_frames  # Store original count
                 original_duration = num_frames / frame_rate
                 
-                # Apply duration trimming if specified
-                if max_duration > 0 and original_duration > max_duration:
-                    # Calculate how many frames to keep
-                    max_frames = int(max_duration * frame_rate)
-                    frames_np = frames_np[:max_frames]
-                    num_frames = max_frames
-                    actual_duration = max_duration
-                    trimmed = True
+                # Apply start time and duration trimming if specified
+                start_frame = int(start_time * frame_rate)
+                start_frame = max(0, min(start_frame, num_frames - 1))
+                
+                if max_duration > 0:
+                    # Calculate end frame based on max_duration
+                    duration_frames = int(max_duration * frame_rate)
+                    end_frame = min(start_frame + duration_frames, num_frames)
                 else:
-                    actual_duration = original_duration
+                    # Use all frames from start_frame to end
+                    end_frame = num_frames
+                
+                # Trim the frames array
+                if start_frame > 0 or end_frame < num_frames:
+                    frames_np = frames_np[start_frame:end_frame]
+                    num_frames = frames_np.shape[0]
+                    trimmed = True
+                    actual_start_time = start_time
+                    actual_duration = num_frames / frame_rate
+                else:
                     trimmed = False
+                    actual_start_time = 0
+                    actual_duration = original_duration
                 
                 # Create temporary video file
                 with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
@@ -279,11 +312,14 @@ class GeminiVideoDescribe:
                 file_size = len(video_data) / 1024 / 1024  # Size in MB
                 
                 # Update video info to include trimming details
-                trim_info = f" (trimmed from {original_duration:.2f}s)" if trimmed else ""
+                end_time = actual_start_time + actual_duration
+                trim_info = f" (trimmed: {actual_start_time:.1f}s → {end_time:.1f}s)" if trimmed else ""
                 
                 video_info_text = f"""📹 Video Processing Info (IMAGE Input):
-• Original Frames: {frames_np.shape[0] if trimmed else num_frames}
+• Original Frames: {original_frames}
 • Processed Frames: {num_frames}
+• Start Time: {actual_start_time:.2f} seconds
+• End Time: {end_time:.2f} seconds
 • Original Duration: {original_duration:.2f} seconds
 • Processed Duration: {actual_duration:.2f} seconds{trim_info}
 • Frame Rate: {frame_rate} FPS
