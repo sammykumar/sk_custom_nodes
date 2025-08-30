@@ -7,7 +7,30 @@ console.log("Loading gemini_widgets.js extension - SIMPLE INLINE PREVIEW VERSION
 app.registerExtension({
     name: "sk_custom_nodes.gemini_widgets",
     
-    // Handle node execution to update final_string widget
+    /**
+     * Handle node execution to update final_string widget with Python node outputs
+     * 
+     * SOLUTION EXPLANATION:
+     * =====================
+     * 
+     * PROBLEM: The final_string widget was created in JavaScript but never populated 
+     * with the actual output from the Python nodes after execution.
+     * 
+     * SOLUTION: This onExecuted handler listens for node execution completion and 
+     * automatically updates the widget with the final_string output from Python.
+     * 
+     * DATA FLOW:
+     * 1. Python nodes (GeminiVideoDescribe/GeminiImageDescribe) execute and return tuples
+     * 2. ComfyUI converts these to execution data format: { "0": [value1], "1": [value2], ... }
+     * 3. This handler extracts the final_string from the correct output index
+     * 4. Updates the read-only widget value for immediate user visibility
+     * 
+     * OUTPUT MAPPINGS:
+     * - GeminiUtilVideoDescribe: final_string is output index 4 (5th output)
+     * - GeminiUtilImageDescribe: final_string is output index 2 (3rd output)
+     * 
+     * COMPATIBILITY: Handles multiple widget update approaches for different ComfyUI versions
+     */
     async onExecuted(nodeId, data) {
         const node = app.graph.getNodeById(nodeId);
         if (!node || !node.finalStringWidget) return;
@@ -19,31 +42,30 @@ app.registerExtension({
             
             let finalStringValue = null;
             
-            // The data structure might be different - let's handle both array and object formats
+            // ComfyUI typically provides execution data as an object with output slots
+            // The data structure is usually: { "output_name": [value] } or { "0": [value], "1": [value], ... }
             if (data && typeof data === 'object') {
-                // Check if data has a direct final_string property
-                if (data.final_string) {
-                    finalStringValue = data.final_string;
+                // Try to find final_string by output name first
+                if (data.final_string && Array.isArray(data.final_string) && data.final_string.length > 0) {
+                    finalStringValue = data.final_string[0];
                 }
-                // Check if data is an array of outputs
-                else if (Array.isArray(data)) {
-                    if (nodeType === "GeminiUtilVideoDescribe" && data.length >= 5) {
-                        // GeminiVideoDescribe returns: (description, video_info, gemini_status, trimmed_video_path, final_string)
-                        finalStringValue = data[4];
-                    } else if (nodeType === "GeminiUtilImageDescribe" && data.length >= 3) {
-                        // GeminiImageDescribe returns: (description, gemini_status, final_string)
-                        finalStringValue = data[2];
+                // Try to find final_string by output index
+                else if (nodeType === "GeminiUtilVideoDescribe") {
+                    // GeminiVideoDescribe returns: (description, video_info, gemini_status, trimmed_video_path, final_string)
+                    // final_string is output index 4
+                    if (data["4"] && Array.isArray(data["4"]) && data["4"].length > 0) {
+                        finalStringValue = data["4"][0];
+                    }
+                } else if (nodeType === "GeminiUtilImageDescribe") {
+                    // GeminiImageDescribe returns: (description, gemini_status, final_string)
+                    // final_string is output index 2
+                    if (data["2"] && Array.isArray(data["2"]) && data["2"].length > 0) {
+                        finalStringValue = data["2"][0];
                     }
                 }
-                // Check if data has an outputs property (common ComfyUI pattern)
-                else if (data.outputs) {
-                    const outputs = data.outputs;
-                    if (nodeType === "GeminiUtilVideoDescribe" && outputs.length >= 5) {
-                        finalStringValue = outputs[4];
-                    } else if (nodeType === "GeminiUtilImageDescribe" && outputs.length >= 3) {
-                        finalStringValue = outputs[2];
-                    }
-                }
+                
+                // Debug: log all available outputs
+                console.log(`Available outputs for ${nodeType}:`, Object.keys(data));
             }
             
             // Update the widget if we found a final_string value
@@ -62,11 +84,13 @@ app.registerExtension({
                 }
                 
                 // Force the node to redraw
-                node.setDirtyCanvas(true);
+                if (node.setDirtyCanvas) {
+                    node.setDirtyCanvas(true);
+                }
                 
-                console.log(`Updated final_string widget for ${nodeType}:`, finalStringValue.substring(0, 100) + "...");
+                console.log(`Successfully updated final_string widget for ${nodeType}:`, finalStringValue.substring(0, 100) + "...");
             } else {
-                console.log(`No final_string found for ${nodeType}, data structure:`, Object.keys(data || {}));
+                console.log(`No valid final_string found for ${nodeType}. Data structure:`, data);
             }
         }
     },
