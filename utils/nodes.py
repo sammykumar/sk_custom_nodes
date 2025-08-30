@@ -4,6 +4,9 @@ import cv2
 import tempfile
 import os
 import subprocess
+import numpy as np
+from PIL import Image
+import io
 
 class GeminiVideoDescribe:
     """
@@ -308,13 +311,173 @@ Please check:
             return (description, video_info, gemini_status, trimmed_video_path)
 
 
+class GeminiImageDescribe:
+    """
+    A ComfyUI custom node for describing single images using Google's Gemini API.
+    Takes IMAGE input tensor from ComfyUI nodes and analyzes with Gemini for text-to-image prompt generation.
+    """
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        """
+        Return a dictionary which contains config for all input fields.
+        Takes standard ComfyUI IMAGE tensor input.
+        """
+        return {
+            "required": {
+                "image": ("IMAGE", {
+                    "tooltip": "Input image to analyze"
+                }),
+                "gemini_api_key": ("STRING", {
+                    "multiline": False,
+                    "default": "",
+                    "tooltip": "Your Gemini API key"
+                }),
+                "gemini_model": (["models/gemini-2.5-flash", "models/gemini-2.5-flash-lite", "models/gemini-2.5-pro"], {
+                    "default": "models/gemini-2.5-flash",
+                    "tooltip": "Select the Gemini model to use"
+                }),
+                "system_prompt": ("STRING", {
+                    "multiline": True,
+                    "default": "Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.\nBefore writing, silently review the provided media. Do not use meta phrases (e.g., \"this picture shows\").\nGenerate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:\nSUBJECT (First Paragraph)\nBegin with a gendered noun phrase (e.g., \"A woman…\", \"A man…\").\nInclude allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.\nStrictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.\nSCENE (Second Paragraph)\nDescribe the visible environment clearly and vividly.\nCINEMATIC AESTHETIC CONTROL (Third Paragraph)\nLighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.\nSTYLIZATION & TONE (Fourth Paragraph)\nMood/genre descriptors (e.g., \"noir-inspired silhouette,\" \"cinematic realism,\" etc.).\nCRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible.",
+                    "tooltip": "System prompt to set the context for the AI"
+                }),
+                "user_prompt": ("STRING", {
+                    "multiline": True,
+                    "default": "Please analyze this image and provide a detailed description following the 4-paragraph structure outlined in the system prompt.",
+                    "tooltip": "User prompt for the specific task"
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("description", "gemini_status")
+    FUNCTION = "describe_image"
+    CATEGORY = "Gemini"
+
+    def describe_image(self, image, gemini_api_key, gemini_model, system_prompt, user_prompt):
+        """
+        Process image tensor and analyze with Gemini
+
+        Args:
+            image: ComfyUI IMAGE tensor (batch_size, height, width, channels)
+            gemini_api_key: Your Gemini API key
+            gemini_model: Gemini model to use
+            system_prompt: System context for the AI
+            user_prompt: User's specific request
+        """
+        try:
+            # Convert ComfyUI IMAGE tensor to image data
+            # ComfyUI images are typically in format (batch_size, height, width, channels) with values 0-1
+
+            # Take the first image from the batch if multiple images
+            if len(image.shape) == 4:
+                image_array = image[0]  # Take first image from batch
+            else:
+                image_array = image
+
+            # Convert from 0-1 float to 0-255 uint8
+            if image_array.dtype == np.float32 or image_array.dtype == np.float64:
+                image_array = (image_array * 255).astype(np.uint8)
+
+            # Convert numpy array to PIL Image
+            if len(image_array.shape) == 3 and image_array.shape[2] == 3:
+                # RGB image
+                pil_image = Image.fromarray(image_array, 'RGB')
+            elif len(image_array.shape) == 3 and image_array.shape[2] == 4:
+                # RGBA image
+                pil_image = Image.fromarray(image_array, 'RGBA')
+            else:
+                # Grayscale or other format, convert to RGB
+                pil_image = Image.fromarray(image_array).convert('RGB')
+
+            # Convert PIL image to bytes
+            img_byte_arr = io.BytesIO()
+            pil_image.save(img_byte_arr, format='JPEG')
+            image_data = img_byte_arr.getvalue()
+
+            # Initialize the Gemini client
+            client = genai.Client(api_key=gemini_api_key)
+
+            # Create the content structure for image analysis
+            contents = [
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_bytes(
+                            mime_type="image/jpeg",
+                            data=image_data,
+                        ),
+                    ],
+                ),
+                types.Content(
+                    role="user",
+                    parts=[
+                        types.Part.from_text(text=f"{system_prompt}\n\n{user_prompt}"),
+                    ],
+                ),
+            ]
+
+            # Configure generation with thinking enabled
+            generate_content_config = types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(
+                    thinking_budget=-1,
+                ),
+            )
+
+            # Generate the image description
+            response = client.models.generate_content(
+                model=gemini_model,
+                contents=contents,
+                config=generate_content_config,
+            )
+
+            # Format the two outputs
+
+            # 1. Description - Clean output from Gemini (for direct use as prompt)
+            description = response.text.strip()
+
+            # 2. Gemini Status - API and model information
+            gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete
+• Model: {gemini_model}
+• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
+• Input: Single Image ({pil_image.size[0]}x{pil_image.size[1]})"""
+
+            return (description, gemini_status)
+
+        except Exception as e:
+            # Handle errors gracefully with two outputs
+
+            # 1. Description - Error message (still usable as text, though not ideal)
+            description = f"Error: Image analysis failed - {str(e)}"
+
+            # 2. Gemini Status - Error details
+            gemini_status = f"""🤖 Gemini Analysis Status: ❌ Failed
+• Model: {gemini_model}
+• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
+• Error: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}
+
+Please check:
+1. API key is valid and has quota
+2. Image input is connected properly
+3. Internet connectivity
+4. Model supports image analysis"""
+
+            return (description, gemini_status)
+
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 NODE_CLASS_MAPPINGS = {
-    "GeminiUtilVideoDescribe": GeminiVideoDescribe
+    "GeminiUtilVideoDescribe": GeminiVideoDescribe,
+    "GeminiUtilImageDescribe": GeminiImageDescribe
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
-    "GeminiUtilVideoDescribe": "Gemini Util - Video Describe"
+    "GeminiUtilVideoDescribe": "Gemini Util - Video Describe",
+    "GeminiUtilImageDescribe": "Gemini Util - Image Describe"
 }
