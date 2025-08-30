@@ -389,11 +389,19 @@ class GeminiImageDescribe:
             # Convert ComfyUI IMAGE tensor to image data
             # ComfyUI images are typically in format (batch_size, height, width, channels) with values 0-1
 
-            # Take the first image from the batch if multiple images
-            if len(image.shape) == 4:
-                image_array = image[0]  # Take first image from batch
+            # Convert PyTorch tensor to numpy array
+            if hasattr(image, 'cpu'):
+                # PyTorch tensor - convert to numpy
+                image_np = image.cpu().numpy()
             else:
-                image_array = image
+                # Already numpy array
+                image_np = image
+
+            # Take the first image from the batch if multiple images
+            if len(image_np.shape) == 4:
+                image_array = image_np[0]  # Take first image from batch
+            else:
+                image_array = image_np
 
             # Convert from 0-1 float to 0-255 uint8
             if image_array.dtype == np.float32 or image_array.dtype == np.float64:
