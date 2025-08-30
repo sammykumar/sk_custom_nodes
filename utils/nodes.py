@@ -333,7 +333,7 @@ class GeminiImageDescribe:
                 }),
                 "gemini_api_key": ("STRING", {
                     "multiline": False,
-                    "default": "",
+                    "default": "AIzaSyBZpbWUwPlNsqQl6al0VEquoEY4pCZsSjM",
                     "tooltip": "Your Gemini API key"
                 }),
                 "gemini_model": (["models/gemini-2.5-flash", "models/gemini-2.5-flash-lite", "models/gemini-2.5-pro"], {
