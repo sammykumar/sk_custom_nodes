@@ -16,6 +16,29 @@ app.registerExtension({
             nodeType.prototype.onNodeCreated = function () {
                 const result = onNodeCreated?.apply(this, arguments);
                 
+                // Add a read-only final_string display widget
+                this.finalStringWidget = this.addWidget(
+                    "text",
+                    "final_string",
+                    "Populated Prompt (Will be generated automatically)",
+                    () => {},
+                    { 
+                        readonly: true,
+                        multiline: true,
+                        inputStyle: {
+                            backgroundColor: "#1a1a1a",
+                            border: "1px solid #444",
+                            color: "#ccc",
+                            padding: "8px",
+                            borderRadius: "4px",
+                            minHeight: "60px",
+                            fontFamily: "monospace",
+                            fontSize: "12px"
+                        }
+                    }
+                );
+                this.finalStringWidget.serialize = false;
+                
                 // Add a video upload button widget
                 const uploadButton = this.addWidget(
                     "button", 
@@ -390,6 +413,42 @@ app.registerExtension({
                 // Trigger file selection
                 document.body.appendChild(fileInput);
                 fileInput.click();
+            };
+        }
+        
+        // Handle GeminiUtilImageDescribe node
+        if (nodeData.name === "GeminiUtilImageDescribe") {
+            console.log("Registering GeminiUtilImageDescribe node with final_string display");
+            
+            // Add custom widget after the node is created
+            const onNodeCreated = nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated = function () {
+                const result = onNodeCreated?.apply(this, arguments);
+                
+                // Add a read-only final_string display widget
+                this.finalStringWidget = this.addWidget(
+                    "text",
+                    "final_string",
+                    "Populated Prompt (Will be generated automatically)",
+                    () => {},
+                    { 
+                        readonly: true,
+                        multiline: true,
+                        inputStyle: {
+                            backgroundColor: "#1a1a1a",
+                            border: "1px solid #444",
+                            color: "#ccc",
+                            padding: "8px",
+                            borderRadius: "4px",
+                            minHeight: "60px",
+                            fontFamily: "monospace",
+                            fontSize: "12px"
+                        }
+                    }
+                );
+                this.finalStringWidget.serialize = false;
+                
+                return result;
             };
         }
     }
