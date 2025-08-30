@@ -7,6 +7,70 @@ console.log("Loading gemini_widgets.js extension - SIMPLE INLINE PREVIEW VERSION
 app.registerExtension({
     name: "sk_custom_nodes.gemini_widgets",
     
+    // Handle node execution to update final_string widget
+    async onExecuted(nodeId, data) {
+        const node = app.graph.getNodeById(nodeId);
+        if (!node || !node.finalStringWidget) return;
+        
+        // Check if this is one of our Gemini nodes and has final_string output
+        const nodeType = node.type;
+        if ((nodeType === "GeminiUtilVideoDescribe" || nodeType === "GeminiUtilImageDescribe")) {
+            console.log(`Node ${nodeType} executed with data:`, data);
+            
+            let finalStringValue = null;
+            
+            // The data structure might be different - let's handle both array and object formats
+            if (data && typeof data === 'object') {
+                // Check if data has a direct final_string property
+                if (data.final_string) {
+                    finalStringValue = data.final_string;
+                }
+                // Check if data is an array of outputs
+                else if (Array.isArray(data)) {
+                    if (nodeType === "GeminiUtilVideoDescribe" && data.length >= 5) {
+                        // GeminiVideoDescribe returns: (description, video_info, gemini_status, trimmed_video_path, final_string)
+                        finalStringValue = data[4];
+                    } else if (nodeType === "GeminiUtilImageDescribe" && data.length >= 3) {
+                        // GeminiImageDescribe returns: (description, gemini_status, final_string)
+                        finalStringValue = data[2];
+                    }
+                }
+                // Check if data has an outputs property (common ComfyUI pattern)
+                else if (data.outputs) {
+                    const outputs = data.outputs;
+                    if (nodeType === "GeminiUtilVideoDescribe" && outputs.length >= 5) {
+                        finalStringValue = outputs[4];
+                    } else if (nodeType === "GeminiUtilImageDescribe" && outputs.length >= 3) {
+                        finalStringValue = outputs[2];
+                    }
+                }
+            }
+            
+            // Update the widget if we found a final_string value
+            if (finalStringValue && typeof finalStringValue === 'string') {
+                // Update the widget value using multiple approaches for compatibility
+                node.finalStringWidget.value = finalStringValue;
+                
+                // If the widget has an input element, update it directly
+                if (node.finalStringWidget.inputEl) {
+                    node.finalStringWidget.inputEl.value = finalStringValue;
+                }
+                
+                // If the widget has a setValue method, use it
+                if (node.finalStringWidget.setValue) {
+                    node.finalStringWidget.setValue(finalStringValue);
+                }
+                
+                // Force the node to redraw
+                node.setDirtyCanvas(true);
+                
+                console.log(`Updated final_string widget for ${nodeType}:`, finalStringValue.substring(0, 100) + "...");
+            } else {
+                console.log(`No final_string found for ${nodeType}, data structure:`, Object.keys(data || {}));
+            }
+        }
+    },
+    
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "GeminiUtilVideoDescribe") {
             console.log("Registering GeminiUtilVideoDescribe node with inline video preview");
@@ -486,5 +550,33 @@ window.playVideoSelection = function(nodeId) {
     if (node && node.videoElement) {
         node.videoElement.currentTime = node.startTime;
         node.videoElement.play();
+    }
+};
+
+// Global helper function to test final_string widget updates
+window.testFinalStringWidget = function(nodeId, testValue) {
+    const node = app.graph.getNodeById(nodeId);
+    if (node && node.finalStringWidget) {
+        console.log("Testing final_string widget update for node:", nodeId);
+        console.log("Before update:", node.finalStringWidget.value);
+        
+        // Update using the same mechanism as onExecuted
+        node.finalStringWidget.value = testValue || "Test final_string content from manual test";
+        
+        if (node.finalStringWidget.inputEl) {
+            node.finalStringWidget.inputEl.value = node.finalStringWidget.value;
+        }
+        
+        if (node.finalStringWidget.setValue) {
+            node.finalStringWidget.setValue(node.finalStringWidget.value);
+        }
+        
+        node.setDirtyCanvas(true);
+        
+        console.log("After update:", node.finalStringWidget.value);
+        return true;
+    } else {
+        console.log("No finalStringWidget found for node:", nodeId);
+        return false;
     }
 };
