@@ -72,16 +72,17 @@ async function initializeExtension(): Promise<void> {
 
     // Register the sidebar tab using ComfyUI's extension API
     const sidebarTab = {
-      id: 'comfyui-react-example',
-      icon: 'pi pi-code', // Using PrimeVue icon
-      title: 'React Example',
-      tooltip: 'React Example Extension',
+      id: 'gemini-video-trimmer',
+      icon: 'pi pi-video', // Using video icon for Gemini Video Trimmer
+      title: 'Gemini Video Trimmer',
+      tooltip:
+        'Gemini Video Trimmer Extension - Trim videos with real-time preview',
       type: 'custom' as const,
       render: (element: HTMLElement) => {
-        console.log('Rendering React Example Extension')
+        console.log('Rendering Gemini Video Trimmer Extension')
         // Create a container for our React app
         const container = document.createElement('div')
-        container.id = 'comfyui-react-example-root'
+        container.id = 'gemini-video-trimmer-root'
         container.style.height = '100%'
         element.appendChild(container)
 

@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from 'react'
 
 import { useTranslation } from '../node_modules/react-i18next'
 import './App.css'
+import { GeminiVideoTab } from './components/GeminiVideoTab'
 
 // Type definitions for the global ComfyUI objects
 declare global {
@@ -130,6 +131,9 @@ function App() {
   const [highlightedNode, setHighlightedNode] = useState<
     string | number | null
   >(null)
+  const [activeTab, setActiveTab] = useState<'overview' | 'gemini-video'>(
+    'overview'
+  )
 
   // Get nodes from ComfyUI graph and organize them
   useEffect(() => {
@@ -276,266 +280,300 @@ function App() {
 
   return (
     <div className="react-example-container">
-      <h2>{t('app.title')}</h2>
-
-      <div className="stats-overview">
-        <div className="stat-card">
-          <div className="stat-value">{totalNodes}</div>
-          <div className="stat-label">{t('app.nodeStats.totalNodes')}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{categories.length}</div>
-          <div className="stat-label">{t('app.nodeStats.uniqueNodeTypes')}</div>
-        </div>
-        <div className="stat-card">
-          <div className="stat-value">{isQueueRunning ? 'Active' : 'Idle'}</div>
-          <div className="stat-label">Queue Status</div>
-        </div>
-      </div>
-
-      <div className="dashboard-section">
-        <h3>Node Type Distribution</h3>
-        {totalNodes > 0 ? (
-          <NodeStatsChart nodeCounts={nodeCounts} totalNodes={totalNodes} />
-        ) : (
-          <div className="empty-state">{t('app.noNodes')}</div>
-        )}
-      </div>
-
-      <div className="dashboard-section">
-        <h3>{t('app.nodeList.title')}</h3>
-        <CategoryFilter
-          categories={categories}
-          selectedCategory={selectedCategory}
-          onSelectCategory={setSelectedCategory}
-        />
-
-        <div className="node-list">
-          {filteredNodes.length > 0 ? (
-            filteredNodes.map((node) => (
-              <div
-                key={node.id}
-                className="node-item"
-                onClick={() => setHighlightedNode(node.id)}
-              >
-                <div
-                  className="node-badge"
-                  style={{
-                    backgroundColor:
-                      CATEGORY_COLORS[node.category] || CATEGORY_COLORS._default
-                  }}
-                ></div>
-                <div className="node-title">{node.title}</div>
-                <div className="node-meta">
-                  <span>
-                    {t('app.nodeList.inputs')}: {node.inputs}
-                  </span>
-                  <span>
-                    {t('app.nodeList.outputs')}: {node.outputs}
-                  </span>
-                </div>
-              </div>
-            ))
-          ) : (
-            <div className="empty-state">
-              {totalNodes === 0
-                ? t('app.noNodes')
-                : 'No nodes match the selected filter'}
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="dashboard-section" style={{ marginTop: '20px' }}>
-        <h3>API Examples</h3>
-        <div
-          className="api-examples"
-          style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}
+      {/* Tab Navigation */}
+      <div className="tab-navigation">
+        <button
+          className={
+            activeTab === 'overview' ? 'tab-button active' : 'tab-button'
+          }
+          onClick={() => setActiveTab('overview')}
         >
-          <h4>Dialog API</h4>
-          <button
-            className="dialog-btn"
-            onClick={() => {
-              // Dialog API Example - Prompt
-              void window.app?.extensionManager.dialog
-                .prompt({
-                  title: 'Dialog API Demo',
-                  message:
-                    'This is a prompt dialog example. Please enter something:',
-                  defaultValue: 'Dialog API is great!'
-                })
-                .then((result) => {
-                  if (result !== null) {
-                    alert(`You entered: ${result}`)
-                  }
-                })
-            }}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#2196F3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              margin: '5px'
-            }}
-          >
-            Show Prompt Dialog
-          </button>
+          📊 Overview
+        </button>
+        <button
+          className={
+            activeTab === 'gemini-video' ? 'tab-button active' : 'tab-button'
+          }
+          onClick={() => setActiveTab('gemini-video')}
+        >
+          🎬 Gemini Video Trimmer
+        </button>
+      </div>
 
-          <button
-            className="dialog-btn"
-            onClick={() => {
-              // Dialog API Example - Confirm
-              void window.app?.extensionManager.dialog
-                .confirm({
-                  title: 'Confirm Action',
-                  message: 'This is a confirmation dialog example.',
-                  type: 'default'
-                })
-                .then((result) => {
-                  alert(result ? 'You confirmed!' : 'You cancelled!')
-                })
-            }}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#FF9800',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              margin: '5px'
-            }}
-          >
-            Show Confirm Dialog
-          </button>
+      {/* Tab Content */}
+      {activeTab === 'overview' ? (
+        <div className="tab-content">
+          <h2>{t('app.title')}</h2>
 
-          <h4>Toast API</h4>
-          <button
-            className="toast-btn"
-            onClick={() => {
-              // Toast API Example - Info
-              window.app?.extensionManager.toast.add({
-                severity: 'info',
-                summary: 'Information',
-                detail: 'This is an info toast message',
-                life: 3000
-              })
-            }}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#2196F3',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              margin: '5px'
-            }}
-          >
-            Show Info Toast
-          </button>
+          <div className="stats-overview">
+            <div className="stat-card">
+              <div className="stat-value">{totalNodes}</div>
+              <div className="stat-label">{t('app.nodeStats.totalNodes')}</div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">{categories.length}</div>
+              <div className="stat-label">
+                {t('app.nodeStats.uniqueNodeTypes')}
+              </div>
+            </div>
+            <div className="stat-card">
+              <div className="stat-value">
+                {isQueueRunning ? 'Active' : 'Idle'}
+              </div>
+              <div className="stat-label">Queue Status</div>
+            </div>
+          </div>
 
-          <button
-            className="toast-btn"
-            onClick={() => {
-              // Toast API Example - Success
-              window.app?.extensionManager.toast.add({
-                severity: 'success',
-                summary: 'Success',
-                detail: 'Operation completed successfully!',
-                life: 3000
-              })
-            }}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#4CAF50',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              margin: '5px'
-            }}
-          >
-            Show Success Toast
-          </button>
+          <div className="dashboard-section">
+            <h3>Node Type Distribution</h3>
+            {totalNodes > 0 ? (
+              <NodeStatsChart nodeCounts={nodeCounts} totalNodes={totalNodes} />
+            ) : (
+              <div className="empty-state">{t('app.noNodes')}</div>
+            )}
+          </div>
 
-          <button
-            className="toast-btn"
-            onClick={() => {
-              // Toast API Example - Warning
-              window.app?.extensionManager.toast.add({
-                severity: 'warn',
-                summary: 'Warning',
-                detail: 'This action may cause issues!',
-                life: 5000
-              })
-            }}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#FF9800',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              margin: '5px'
-            }}
-          >
-            Show Warning Toast
-          </button>
+          <div className="dashboard-section">
+            <h3>{t('app.nodeList.title')}</h3>
+            <CategoryFilter
+              categories={categories}
+              selectedCategory={selectedCategory}
+              onSelectCategory={setSelectedCategory}
+            />
 
-          <button
-            className="toast-btn"
-            onClick={() => {
-              // Toast API Example - Error
-              window.app?.extensionManager.toast.add({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Something went wrong!',
-                life: 5000
-              })
-            }}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#F44336',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              margin: '5px'
-            }}
-          >
-            Show Error Toast
-          </button>
+            <div className="node-list">
+              {filteredNodes.length > 0 ? (
+                filteredNodes.map((node) => (
+                  <div
+                    key={node.id}
+                    className="node-item"
+                    onClick={() => setHighlightedNode(node.id)}
+                  >
+                    <div
+                      className="node-badge"
+                      style={{
+                        backgroundColor:
+                          CATEGORY_COLORS[node.category] ||
+                          CATEGORY_COLORS._default
+                      }}
+                    ></div>
+                    <div className="node-title">{node.title}</div>
+                    <div className="node-meta">
+                      <span>
+                        {t('app.nodeList.inputs')}: {node.inputs}
+                      </span>
+                      <span>
+                        {t('app.nodeList.outputs')}: {node.outputs}
+                      </span>
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="empty-state">
+                  {totalNodes === 0
+                    ? t('app.noNodes')
+                    : 'No nodes match the selected filter'}
+                </div>
+              )}
+            </div>
+          </div>
 
-          <button
-            className="toast-btn"
-            onClick={() => {
-              // Toast API Example - Alert alternative using regular toast
-              window.app?.extensionManager.toast.add({
-                severity: 'info',
-                summary: 'Alert',
-                detail: 'This is an alert message!',
-                life: 3000
-              })
-            }}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: '#673AB7',
-              color: 'white',
-              border: 'none',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              margin: '5px'
-            }}
-          >
-            Show Alert Toast
-          </button>
+          <div className="dashboard-section" style={{ marginTop: '20px' }}>
+            <h3>API Examples</h3>
+            <div
+              className="api-examples"
+              style={{ display: 'flex', flexWrap: 'wrap', gap: '10px' }}
+            >
+              <h4>Dialog API</h4>
+              <button
+                className="dialog-btn"
+                onClick={() => {
+                  // Dialog API Example - Prompt
+                  void window.app?.extensionManager.dialog
+                    .prompt({
+                      title: 'Dialog API Demo',
+                      message:
+                        'This is a prompt dialog example. Please enter something:',
+                      defaultValue: 'Dialog API is great!'
+                    })
+                    .then((result) => {
+                      if (result !== null) {
+                        alert(`You entered: ${result}`)
+                      }
+                    })
+                }}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#2196F3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  margin: '5px'
+                }}
+              >
+                Show Prompt Dialog
+              </button>
+
+              <button
+                className="dialog-btn"
+                onClick={() => {
+                  // Dialog API Example - Confirm
+                  void window.app?.extensionManager.dialog
+                    .confirm({
+                      title: 'Confirm Action',
+                      message: 'This is a confirmation dialog example.',
+                      type: 'default'
+                    })
+                    .then((result) => {
+                      alert(result ? 'You confirmed!' : 'You cancelled!')
+                    })
+                }}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#FF9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  margin: '5px'
+                }}
+              >
+                Show Confirm Dialog
+              </button>
+
+              <h4>Toast API</h4>
+              <button
+                className="toast-btn"
+                onClick={() => {
+                  // Toast API Example - Info
+                  window.app?.extensionManager.toast.add({
+                    severity: 'info',
+                    summary: 'Information',
+                    detail: 'This is an info toast message',
+                    life: 3000
+                  })
+                }}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#2196F3',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  margin: '5px'
+                }}
+              >
+                Show Info Toast
+              </button>
+
+              <button
+                className="toast-btn"
+                onClick={() => {
+                  // Toast API Example - Success
+                  window.app?.extensionManager.toast.add({
+                    severity: 'success',
+                    summary: 'Success',
+                    detail: 'Operation completed successfully!',
+                    life: 3000
+                  })
+                }}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#4CAF50',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  margin: '5px'
+                }}
+              >
+                Show Success Toast
+              </button>
+
+              <button
+                className="toast-btn"
+                onClick={() => {
+                  // Toast API Example - Warning
+                  window.app?.extensionManager.toast.add({
+                    severity: 'warn',
+                    summary: 'Warning',
+                    detail: 'This action may cause issues!',
+                    life: 5000
+                  })
+                }}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#FF9800',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  margin: '5px'
+                }}
+              >
+                Show Warning Toast
+              </button>
+
+              <button
+                className="toast-btn"
+                onClick={() => {
+                  // Toast API Example - Error
+                  window.app?.extensionManager.toast.add({
+                    severity: 'error',
+                    summary: 'Error',
+                    detail: 'Something went wrong!',
+                    life: 5000
+                  })
+                }}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#F44336',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  margin: '5px'
+                }}
+              >
+                Show Error Toast
+              </button>
+
+              <button
+                className="toast-btn"
+                onClick={() => {
+                  // Toast API Example - Alert alternative using regular toast
+                  window.app?.extensionManager.toast.add({
+                    severity: 'info',
+                    summary: 'Alert',
+                    detail: 'This is an alert message!',
+                    life: 3000
+                  })
+                }}
+                style={{
+                  padding: '8px 12px',
+                  backgroundColor: '#673AB7',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  margin: '5px'
+                }}
+              >
+                Show Alert Toast
+              </button>
+            </div>
+          </div>
+
+          <div className="footer">
+            <p>{t('app.footer.clickToHighlight')}</p>
+          </div>
         </div>
-      </div>
-
-      <div className="footer">
-        <p>{t('app.footer.clickToHighlight')}</p>
-      </div>
+      ) : (
+        <div className="tab-content">
+          <GeminiVideoTab />
+        </div>
+      )}
     </div>
   )
 }

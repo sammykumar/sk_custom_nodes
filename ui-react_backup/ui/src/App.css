@@ -9,6 +9,43 @@
   overflow-y: auto;
 }
 
+/* Tab Navigation */
+.tab-navigation {
+  display: flex;
+  gap: 2px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--example-border-color);
+}
+
+.tab-button {
+  background-color: transparent;
+  border: none;
+  color: var(--example-text-color);
+  padding: 12px 16px;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  transition: background-color 0.2s, color 0.2s;
+  opacity: 0.7;
+}
+
+.tab-button:hover {
+  background-color: rgba(255, 255, 255, 0.05);
+  opacity: 1;
+}
+
+.tab-button.active {
+  background-color: var(--example-primary-color);
+  color: white;
+  opacity: 1;
+  font-weight: bold;
+}
+
+.tab-content {
+  flex: 1;
+  overflow-y: auto;
+}
+
 .react-example-container h2 {
   margin-top: 0;
   margin-bottom: 16px;
