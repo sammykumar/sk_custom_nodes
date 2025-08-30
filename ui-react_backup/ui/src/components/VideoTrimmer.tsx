@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
+
 import './VideoTrimmer.css'
 
 interface VideoTrimmerProps {
@@ -23,7 +24,10 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
   const timelineRef = useRef<HTMLDivElement>(null)
   const [duration, setDuration] = useState(0)
   const [currentTime, setCurrentTime] = useState(0)
-  const [trimRange, setTrimRange] = useState<TrimRange>({ start: initialStartTime, end: initialEndTime })
+  const [trimRange, setTrimRange] = useState<TrimRange>({
+    start: initialStartTime,
+    end: initialEndTime
+  })
   const [isDragging, setIsDragging] = useState<'start' | 'end' | null>(null)
   const [isPlaying, setIsPlaying] = useState(false)
 
@@ -54,7 +58,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
     if (videoRef.current) {
       const time = videoRef.current.currentTime
       setCurrentTime(time)
-      
+
       // Stop playback at trim end
       if (time >= trimRange.end) {
         videoRef.current.pause()
@@ -67,10 +71,13 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
   const handlePlay = () => {
     if (videoRef.current) {
       // Start from trim start if current time is outside trim range
-      if (videoRef.current.currentTime < trimRange.start || videoRef.current.currentTime > trimRange.end) {
+      if (
+        videoRef.current.currentTime < trimRange.start ||
+        videoRef.current.currentTime > trimRange.end
+      ) {
         videoRef.current.currentTime = trimRange.start
       }
-      videoRef.current.play()
+      void videoRef.current.play()
       setIsPlaying(true)
     }
   }
@@ -89,44 +96,50 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
     return Math.max(0, Math.min(duration, position * duration))
   }
 
-  const handleMouseDown = (event: React.MouseEvent, handle: 'start' | 'end') => {
+  const handleMouseDown = (
+    event: React.MouseEvent,
+    handle: 'start' | 'end'
+  ) => {
     event.preventDefault()
     setIsDragging(handle)
   }
 
-  const handleMouseMove = useCallback((event: MouseEvent) => {
-    if (!isDragging || !timelineRef.current) return
+  const handleMouseMove = useCallback(
+    (event: MouseEvent) => {
+      if (!isDragging || !timelineRef.current) return
 
-    const newTime = getTimeFromPosition(event.clientX)
-    
-    if (isDragging === 'start') {
-      const newStart = Math.min(newTime, trimRange.end - 0.1) // Minimum 0.1s clip
-      const newRange = { start: newStart, end: trimRange.end }
-      setTrimRange(newRange)
-      onTrimChange?.(newRange.start, newRange.end)
-      
-      // Restart video from new start
-      if (videoRef.current) {
-        videoRef.current.currentTime = newStart
-        if (isPlaying) {
-          videoRef.current.play()
+      const newTime = getTimeFromPosition(event.clientX)
+
+      if (isDragging === 'start') {
+        const newStart = Math.min(newTime, trimRange.end - 0.1) // Minimum 0.1s clip
+        const newRange = { start: newStart, end: trimRange.end }
+        setTrimRange(newRange)
+        onTrimChange?.(newRange.start, newRange.end)
+
+        // Restart video from new start
+        if (videoRef.current) {
+          videoRef.current.currentTime = newStart
+          if (isPlaying) {
+            void videoRef.current.play()
+          }
+        }
+      } else if (isDragging === 'end') {
+        const newEnd = Math.max(newTime, trimRange.start + 0.1) // Minimum 0.1s clip
+        const newRange = { start: trimRange.start, end: newEnd }
+        setTrimRange(newRange)
+        onTrimChange?.(newRange.start, newRange.end)
+
+        // Restart video from start
+        if (videoRef.current) {
+          videoRef.current.currentTime = trimRange.start
+          if (isPlaying) {
+            void videoRef.current.play()
+          }
         }
       }
-    } else if (isDragging === 'end') {
-      const newEnd = Math.max(newTime, trimRange.start + 0.1) // Minimum 0.1s clip
-      const newRange = { start: trimRange.start, end: newEnd }
-      setTrimRange(newRange)
-      onTrimChange?.(newRange.start, newRange.end)
-      
-      // Restart video from start
-      if (videoRef.current) {
-        videoRef.current.currentTime = trimRange.start
-        if (isPlaying) {
-          videoRef.current.play()
-        }
-      }
-    }
-  }, [isDragging, trimRange, onTrimChange, isPlaying])
+    },
+    [isDragging, trimRange, onTrimChange, isPlaying]
+  )
 
   const handleMouseUp = useCallback(() => {
     setIsDragging(null)
@@ -169,12 +182,12 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
           </button>
         </div>
       </div>
-      
+
       <div className="timeline-container">
         <div className="timeline" ref={timelineRef}>
           {/* Background timeline */}
           <div className="timeline-track"></div>
-          
+
           {/* Trimmed area */}
           <div
             className="timeline-selection"
@@ -183,13 +196,13 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
               width: `${endPercentage - startPercentage}%`
             }}
           ></div>
-          
+
           {/* Current time indicator */}
           <div
             className="timeline-current"
             style={{ left: `${currentPercentage}%` }}
           ></div>
-          
+
           {/* Start handle */}
           <div
             className="timeline-handle timeline-handle-start"
@@ -198,7 +211,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
           >
             <div className="handle-bracket handle-bracket-left">⟨</div>
           </div>
-          
+
           {/* End handle */}
           <div
             className="timeline-handle timeline-handle-end"
@@ -208,7 +221,7 @@ export const VideoTrimmer: React.FC<VideoTrimmerProps> = ({
             <div className="handle-bracket handle-bracket-right">⟩</div>
           </div>
         </div>
-        
+
         <div className="time-display">
           <span>{formatTime(trimRange.start)}</span>
           <span>Duration: {formatTime(trimRange.end - trimRange.start)}</span>

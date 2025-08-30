@@ -12,42 +12,33 @@
 /* Tab Navigation */
 .tab-navigation {
   display: flex;
-  border-bottom: 2px solid var(--example-border-color);
-  margin-bottom: 20px;
-  gap: 4px;
+  gap: 2px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid var(--example-border-color);
 }
 
 .tab-button {
-  padding: 12px 20px;
-  background: transparent;
+  background-color: transparent;
   border: none;
-  color: var(--example-muted-text-color);
-  cursor: pointer;
+  color: var(--example-text-color);
+  padding: 12px 16px;
   font-size: 14px;
-  font-weight: 500;
-  border-radius: 8px 8px 0 0;
-  transition: all 0.2s ease;
-  position: relative;
+  cursor: pointer;
+  border-radius: 4px 4px 0 0;
+  transition: background-color 0.2s, color 0.2s;
+  opacity: 0.7;
 }
 
 .tab-button:hover {
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--example-text-color);
+  background-color: rgba(255, 255, 255, 0.05);
+  opacity: 1;
 }
 
 .tab-button.active {
-  background: var(--example-primary-color);
+  background-color: var(--example-primary-color);
   color: white;
-}
-
-.tab-button.active::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background: var(--example-primary-color);
+  opacity: 1;
+  font-weight: bold;
 }
 
 .tab-content {

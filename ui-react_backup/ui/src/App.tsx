@@ -1,9 +1,9 @@
 import { ComfyApp } from '@comfyorg/comfyui-frontend-types'
 import { useEffect, useMemo, useState } from 'react'
-import { useTranslation } from '../node_modules/react-i18next'
-import { GeminiVideoTab } from './components/GeminiVideoTab'
 
+import { useTranslation } from '../node_modules/react-i18next'
 import './App.css'
+import { GeminiVideoTab } from './components/GeminiVideoTab'
 
 // Type definitions for the global ComfyUI objects
 declare global {
@@ -131,7 +131,9 @@ function App() {
   const [highlightedNode, setHighlightedNode] = useState<
     string | number | null
   >(null)
-  const [activeTab, setActiveTab] = useState<'overview' | 'gemini-video'>('overview')
+  const [activeTab, setActiveTab] = useState<'overview' | 'gemini-video'>(
+    'overview'
+  )
 
   // Get nodes from ComfyUI graph and organize them
   useEffect(() => {
@@ -278,21 +280,27 @@ function App() {
 
   return (
     <div className="react-example-container">
+      {/* Tab Navigation */}
       <div className="tab-navigation">
         <button
-          className={activeTab === 'overview' ? 'tab-button active' : 'tab-button'}
+          className={
+            activeTab === 'overview' ? 'tab-button active' : 'tab-button'
+          }
           onClick={() => setActiveTab('overview')}
         >
           📊 Overview
         </button>
         <button
-          className={activeTab === 'gemini-video' ? 'tab-button active' : 'tab-button'}
+          className={
+            activeTab === 'gemini-video' ? 'tab-button active' : 'tab-button'
+          }
           onClick={() => setActiveTab('gemini-video')}
         >
           🎬 Gemini Video Trimmer
         </button>
       </div>
 
+      {/* Tab Content */}
       {activeTab === 'overview' ? (
         <div className="tab-content">
           <h2>{t('app.title')}</h2>
@@ -304,10 +312,14 @@ function App() {
             </div>
             <div className="stat-card">
               <div className="stat-value">{categories.length}</div>
-              <div className="stat-label">{t('app.nodeStats.uniqueNodeTypes')}</div>
+              <div className="stat-label">
+                {t('app.nodeStats.uniqueNodeTypes')}
+              </div>
             </div>
             <div className="stat-card">
-              <div className="stat-value">{isQueueRunning ? 'Active' : 'Idle'}</div>
+              <div className="stat-value">
+                {isQueueRunning ? 'Active' : 'Idle'}
+              </div>
               <div className="stat-label">Queue Status</div>
             </div>
           </div>
@@ -341,7 +353,8 @@ function App() {
                       className="node-badge"
                       style={{
                         backgroundColor:
-                          CATEGORY_COLORS[node.category] || CATEGORY_COLORS._default
+                          CATEGORY_COLORS[node.category] ||
+                          CATEGORY_COLORS._default
                       }}
                     ></div>
                     <div className="node-title">{node.title}</div>

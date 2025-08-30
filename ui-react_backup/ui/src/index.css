@@ -10,7 +10,7 @@
 }
 
 /* Light mode overrides */
-:root.comfy-theme-light #comfyui-react-example-root {
+:root.comfy-theme-light #gemini-video-trimmer-root {
   --example-primary-color: #2980b9;
   --example-secondary-color: #34495e;
   --example-text-color: #2c3e50;
@@ -21,13 +21,13 @@
 }
 
 /* Make sure our styles don't leak out to the rest of ComfyUI */
-#comfyui-react-example-root {
+#gemini-video-trimmer-root {
   height: 100%;
   font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   box-sizing: border-box;
   color: var(--example-text-color);
 }
 
-#comfyui-react-example-root * {
+#gemini-video-trimmer-root * {
   box-sizing: border-box;
 }
