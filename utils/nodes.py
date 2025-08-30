@@ -64,11 +64,16 @@ class GeminiVideoDescribe:
                     "step": 0.1,
                     "tooltip": "Maximum duration in seconds (0 = use full video)"
                 }),
+                "prefix_text": ("STRING", {
+                    "multiline": True,
+                    "default": "",
+                    "tooltip": "Text to prepend to the generated description"
+                }),
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
-    RETURN_NAMES = ("description", "video_info", "gemini_status", "trimmed_video_path")
+    RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING", "STRING")
+    RETURN_NAMES = ("description", "video_info", "gemini_status", "trimmed_video_path", "final_string")
     FUNCTION = "describe_video"
     CATEGORY = "Gemini"
 
@@ -119,7 +124,7 @@ class GeminiVideoDescribe:
             print("FFmpeg not found. Please install ffmpeg to use duration trimming.")
             return False
 
-    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, frame_rate=24.0, uploaded_video_file="", max_duration=0.0):
+    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, frame_rate=24.0, uploaded_video_file="", max_duration=0.0, prefix_text=""):
         """
         Process uploaded video file and analyze with Gemini
 
@@ -278,7 +283,10 @@ class GeminiVideoDescribe:
             # 4. Trimmed Video Path - Path to the processed video file
             trimmed_video_path = trimmed_video_output_path
 
-            return (description, video_info, gemini_status, trimmed_video_path)
+            # 5. Final String - Concatenated prefix and description
+            final_string = f"{prefix_text}{description}" if prefix_text else description
+
+            return (description, video_info, gemini_status, trimmed_video_path, final_string)
 
         except Exception as e:
             # Handle errors gracefully with four separate outputs
@@ -308,7 +316,10 @@ Please check:
             # 4. Trimmed Video Path - Empty on error
             trimmed_video_path = ""
 
-            return (description, video_info, gemini_status, trimmed_video_path)
+            # 5. Final String - Concatenated prefix and error description
+            final_string = f"{prefix_text}{description}" if prefix_text else description
+
+            return (description, video_info, gemini_status, trimmed_video_path, final_string)
 
 
 class GeminiImageDescribe:
@@ -350,15 +361,20 @@ class GeminiImageDescribe:
                     "default": "Please analyze this image and provide a detailed description following the 4-paragraph structure outlined in the system prompt.",
                     "tooltip": "User prompt for the specific task"
                 }),
+                "prefix_text": ("STRING", {
+                    "multiline": True,
+                    "default": "",
+                    "tooltip": "Text to prepend to the generated description"
+                }),
             }
         }
 
-    RETURN_TYPES = ("STRING", "STRING")
-    RETURN_NAMES = ("description", "gemini_status")
+    RETURN_TYPES = ("STRING", "STRING", "STRING")
+    RETURN_NAMES = ("description", "gemini_status", "final_string")
     FUNCTION = "describe_image"
     CATEGORY = "Gemini"
 
-    def describe_image(self, image, gemini_api_key, gemini_model, system_prompt, user_prompt):
+    def describe_image(self, image, gemini_api_key, gemini_model, system_prompt, user_prompt, prefix_text=""):
         """
         Process image tensor and analyze with Gemini
 
@@ -435,7 +451,7 @@ class GeminiImageDescribe:
                 config=generate_content_config,
             )
 
-            # Format the two outputs
+            # Format the three outputs
 
             # 1. Description - Clean output from Gemini (for direct use as prompt)
             description = response.text.strip()
@@ -446,10 +462,13 @@ class GeminiImageDescribe:
 • API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
 • Input: Single Image ({pil_image.size[0]}x{pil_image.size[1]})"""
 
-            return (description, gemini_status)
+            # 3. Final String - Concatenated prefix and description
+            final_string = f"{prefix_text}{description}" if prefix_text else description
+
+            return (description, gemini_status, final_string)
 
         except Exception as e:
-            # Handle errors gracefully with two outputs
+            # Handle errors gracefully with three outputs
 
             # 1. Description - Error message (still usable as text, though not ideal)
             description = f"Error: Image analysis failed - {str(e)}"
@@ -466,7 +485,10 @@ Please check:
 3. Internet connectivity
 4. Model supports image analysis"""
 
-            return (description, gemini_status)
+            # 3. Final String - Concatenated prefix and error description
+            final_string = f"{prefix_text}{description}" if prefix_text else description
+
+            return (description, gemini_status, final_string)
 
 
 # A dictionary that contains all nodes you want to export with their names
