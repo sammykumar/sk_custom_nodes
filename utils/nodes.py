@@ -1,12 +1,8 @@
-from inspect import cleandoc
 from google import genai
 from google.genai import types
-import torch
-import numpy as np
 import cv2
 import tempfile
 import os
-import base64
 import subprocess
 
 class GeminiVideoDescribe:
@@ -14,7 +10,7 @@ class GeminiVideoDescribe:
     A ComfyUI custom node for describing videos using Google's Gemini API.
     Takes IMAGE input from VideoHelperSuite nodes and converts back to video for analysis.
     """
-    
+
     def __init__(self):
         pass
 
@@ -67,22 +63,22 @@ class GeminiVideoDescribe:
                 }),
             }
         }
-                
+
     RETURN_TYPES = ("STRING", "STRING", "STRING", "STRING")
     RETURN_NAMES = ("description", "video_info", "gemini_status", "trimmed_video_path")
     FUNCTION = "describe_video"
     CATEGORY = "Gemini"
-    
+
     def _trim_video(self, input_path, output_path, duration):
         """
         Trim video to specified duration from the beginning using ffmpeg
-        
+
         Args:
             input_path: Path to input video file
             output_path: Path to output trimmed video file
             duration: Duration in seconds from the beginning
         """
-        
+
         try:
             # Use ffmpeg to trim the video from the beginning
             cmd = [
@@ -94,10 +90,10 @@ class GeminiVideoDescribe:
                 '-y',  # Overwrite output file if it exists
                 output_path
             ]
-            
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
             return True
-            
+
         except subprocess.CalledProcessError as e:
             print(f"FFmpeg error: {e.stderr}")
             # Fallback: try with re-encoding if copy fails
@@ -119,11 +115,11 @@ class GeminiVideoDescribe:
         except FileNotFoundError:
             print("FFmpeg not found. Please install ffmpeg to use duration trimming.")
             return False
-    
+
     def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, frame_rate=24.0, uploaded_video_file="", max_duration=0.0):
         """
         Process uploaded video file and analyze with Gemini
-        
+
         Args:
             gemini_api_key: Your Gemini API key
             gemini_model: Gemini model to use
@@ -137,7 +133,7 @@ class GeminiVideoDescribe:
             video_data = None
             video_info_text = ""
             trimmed_video_output_path = ""  # Track the output path for trimmed video
-            
+
             # Check if we have an uploaded video file
             if uploaded_video_file and uploaded_video_file.strip():
                 # Process uploaded video file
@@ -149,9 +145,9 @@ class GeminiVideoDescribe:
                     except ImportError:
                         # Fallback if folder_paths is not available
                         input_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "input")
-                    
+
                     video_path = os.path.join(input_dir, uploaded_video_file)
-                    
+
                     if os.path.exists(video_path):
                         # Get original video info using OpenCV
                         cap = cv2.VideoCapture(video_path)
@@ -161,23 +157,22 @@ class GeminiVideoDescribe:
                         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
                         original_duration = frame_count / fps if fps > 0 else 0
                         cap.release()
-                        
+
                         # Determine the video file to use for analysis
                         final_video_path = video_path
-                        actual_start_time = 0.0  # Always start from beginning
                         actual_duration = original_duration
                         trimmed = False
-                        
+
                         # Calculate duration based on max_duration
                         if max_duration > 0:
                             actual_duration = min(max_duration, original_duration)
-                        
+
                         # Check if we need to trim the video (only duration limit)
                         if max_duration > 0 and actual_duration < original_duration:
                             # Create a temporary trimmed video file
                             with tempfile.NamedTemporaryFile(suffix='.mp4', delete=False) as temp_file:
                                 trimmed_video_path = temp_file.name
-                            
+
                             # Attempt to trim the video
                             if self._trim_video(video_path, trimmed_video_path, actual_duration):
                                 final_video_path = trimmed_video_path
@@ -192,19 +187,19 @@ class GeminiVideoDescribe:
                         else:
                             # No trimming needed, use original video path
                             trimmed_video_output_path = video_path
-                        
+
                         # Read the final video file (original or trimmed)
                         with open(final_video_path, 'rb') as video_file:
                             video_data = video_file.read()
-                        
+
                         # Note: We do NOT clean up the trimmed video file since we want to output its path
-                        
+
                         file_size = len(video_data) / 1024 / 1024  # Size in MB
-                        
+
                         # Update video info to include trimming details
                         end_time = actual_duration  # Since we start from 0
                         trim_info = f" (trimmed: 0.0s → {end_time:.1f}s)" if trimmed else ""
-                        
+
                         video_info_text = f"""📹 Video Processing Info (Uploaded File):
 • File: {os.path.basename(uploaded_video_file)}
 • Original Duration: {original_duration:.2f} seconds
@@ -215,22 +210,22 @@ class GeminiVideoDescribe:
 • Frame Rate: {fps:.2f} FPS
 • Resolution: {width}x{height}
 • File Size: {file_size:.2f} MB"""
-                        
+
                     else:
                         raise FileNotFoundError(f"Uploaded video file not found: {video_path}")
-                        
+
                 except Exception as e:
                     raise RuntimeError(f"Failed to process uploaded video: {str(e)}")
-            
+
             else:
                 raise ValueError("No video input provided. Please upload a video file using the upload button.")
-            
+
             if video_data is None:
                 raise RuntimeError("Failed to process video data")
-            
+
             # Initialize the Gemini client
             client = genai.Client(api_key=gemini_api_key)
-            
+
             # Create the content structure for video analysis
             contents = [
                 types.Content(
@@ -249,52 +244,52 @@ class GeminiVideoDescribe:
                     ],
                 ),
             ]
-            
+
             # Configure generation with thinking enabled
             generate_content_config = types.GenerateContentConfig(
                 thinking_config=types.ThinkingConfig(
                     thinking_budget=-1,
                 ),
             )
-            
+
             # Generate the video description
             response = client.models.generate_content(
                 model=gemini_model,
                 contents=contents,
                 config=generate_content_config,
             )
-            
+
             # Format the four separate outputs
-            
+
             # 1. Description - Clean output from Gemini (for direct use as prompt)
             description = response.text.strip()
-            
+
             # 2. Video Info - Technical details about the processed video
             video_info = video_info_text
-            
+
             # 3. Gemini Status - API and model information
             gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete
 • Model: {gemini_model}
 • API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}"""
-            
+
             # 4. Trimmed Video Path - Path to the processed video file
             trimmed_video_path = trimmed_video_output_path
-            
+
             return (description, video_info, gemini_status, trimmed_video_path)
-            
+
         except Exception as e:
             # Handle errors gracefully with four separate outputs
-            
+
             # 1. Description - Error message (still usable as text, though not ideal)
             description = f"Error: Video analysis failed - {str(e)}"
-            
+
             # 2. Video Info - What we know about the input
             video_info = f"""📹 Video Processing Info:
 • Status: ❌ Processing Failed
 • Input Type: {'Uploaded File' if uploaded_video_file and uploaded_video_file.strip() else 'None'}
 • Frame Rate: {frame_rate} FPS (legacy parameter)
 • Max Duration: {max_duration if max_duration > 0 else 'Full Video'} seconds"""
-            
+
             # 3. Gemini Status - Error details
             gemini_status = f"""🤖 Gemini Analysis Status: ❌ Failed
 • Model: {gemini_model}
@@ -306,10 +301,10 @@ Please check:
 2. Video file is uploaded using the upload button
 3. Internet connectivity
 4. Model supports video analysis"""
-            
+
             # 4. Trimmed Video Path - Empty on error
             trimmed_video_path = ""
-            
+
             return (description, video_info, gemini_status, trimmed_video_path)
 
 

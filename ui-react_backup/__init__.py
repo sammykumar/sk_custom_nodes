@@ -31,7 +31,7 @@ if os.path.exists(dist_path):
         server.PromptServer.instance.app.add_routes([
             web.static("/locales/", dist_locales_path),
         ])
-        print(f"Registered locale files route at /locales/")
+        print("Registered locale files route at /locales/")
     else:
         print("WARNING: Locale directory not found!")
 
@@ -51,16 +51,16 @@ if os.path.exists(dist_path):
 
     # Register the dist directory for React app
     nodes.EXTENSION_WEB_DIRS[project_name] = os.path.join(workspace_path, "dist")
-    
+
     # Also register the web directory for JavaScript extensions
     web_dir = os.path.join(workspace_path, "web")
     if os.path.exists(web_dir):
         nodes.EXTENSION_WEB_DIRS[f"{project_name}_web"] = web_dir
         print(f"Registered web directory: {web_dir}")
-    
+
 else:
     print("ComfyUI Example React Extension: Dist directory not found")
-    
+
     # Fallback: register web directory even if dist doesn't exist
     project_name = os.path.basename(workspace_path)
     web_dir = os.path.join(workspace_path, "web")
