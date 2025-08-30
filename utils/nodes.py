@@ -24,7 +24,7 @@ class GeminiVideoDescribe:
             "required": {
                 "gemini_api_key": ("STRING", {
                     "multiline": False,
-                    "default": "",
+                    "default": "AIzaSyBZpbWUwPlNsqQl6al0VEquoEY4pCZsSjM",
                     "tooltip": "Your Gemini API key"
                 }),
                 "gemini_model": (["models/gemini-2.5-flash", "models/gemini-2.5-flash-lite", "models/gemini-2.5-pro"], {
@@ -44,7 +44,7 @@ class GeminiVideoDescribe:
             },
             "optional": {
                 "frame_rate": ("FLOAT", {
-                    "default": 24.0,
+                    "default": 30,
                     "min": 1.0,
                     "max": 60.0,
                     "step": 0.1,
