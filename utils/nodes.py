@@ -396,6 +396,10 @@ class GeminiImageDescribe:
                     "default": "models/gemini-2.5-flash",
                     "tooltip": "Select the Gemini model to use"
                 }),
+                "model_type": (["Text2Image", "ImageEdit"], {
+                    "default": "Text2Image",
+                    "tooltip": "Select the type of model workflow to use"
+                }),
                 "description_mode": (["Describe without clothing", "Describe with clothing"], {
                     "default": "Describe without clothing",
                     "tooltip": "Choose whether to include detailed clothing description"
@@ -413,7 +417,7 @@ class GeminiImageDescribe:
     FUNCTION = "describe_image"
     CATEGORY = "Gemini"
 
-    def describe_image(self, image, gemini_api_key, gemini_model, description_mode, prefix_text=""):
+    def describe_image(self, image, gemini_api_key, gemini_model, model_type, description_mode, prefix_text=""):
         """
         Process image tensor and analyze with Gemini
 
@@ -421,13 +425,15 @@ class GeminiImageDescribe:
             image: ComfyUI IMAGE tensor (batch_size, height, width, channels)
             gemini_api_key: Your Gemini API key
             gemini_model: Gemini model to use
+            model_type: Type of model workflow ("Text2Image" or "ImageEdit")
             description_mode: Mode for description ("Describe without clothing" or "Describe with clothing")
             prefix_text: Text to prepend to the generated description
         """
         try:
-            # Set the appropriate system prompt and user prompt based on description mode
-            if description_mode == "Describe with clothing":
-                system_prompt = """Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
+            # Set the appropriate system prompt and user prompt based on model_type and description_mode
+            if model_type == "Text2Image":
+                if description_mode == "Describe with clothing":
+                    system_prompt = """Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
 Before writing, silently review the provided media. Do not use meta phrases (e.g., "this picture shows").
 Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
 
@@ -449,9 +455,9 @@ CLOTHING (Fifth Paragraph)
 Describe all visible clothing and accessories. Be granular: specify garment type, color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and note how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes.
 
 CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible."""
-                user_prompt = "Please analyze this image and provide a detailed description following the 5-paragraph structure outlined in the system prompt."
-            else:  # "Describe without clothing"
-                system_prompt = """Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
+                    user_prompt = "Please analyze this image and provide a detailed description following the 5-paragraph structure outlined in the system prompt."
+                else:  # "Describe without clothing"
+                    system_prompt = """Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
 Before writing, silently review the provided media. Do not use meta phrases (e.g., "this picture shows").
 Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
 
@@ -470,7 +476,16 @@ STYLIZATION & TONE (Fourth Paragraph)
 Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.).
 
 CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line. DO NOT describe clothing, accessories, or garments in any paragraph. Never mention prohibited attributes, even if visible."""
-                user_prompt = "Please analyze this image and provide a detailed description following the 4-paragraph structure outlined in the system prompt."
+                    user_prompt = "Please analyze this image and provide a detailed description following the 4-paragraph structure outlined in the system prompt."
+            else:  # model_type == "ImageEdit"
+                if description_mode == "Describe with clothing":
+                    # ImageEdit with clothing prompt
+                    system_prompt = """You are an expert assistant generating concise, single-sentence Qwen-Image-Edit instructions; always begin with "Make this person…", specify deep focus ("f/11 for deep focus—no bokeh or blur"), describe allowed traits like pose, posture, outfit style (without age, ethnicity, tattoos, hair color, etc.), include clear torso and head orientation (e.g., "torso angled 45° to camera, head turned toward viewer"), include vivid scene details (e.g. bedroom props, lights, furniture) to ensure background appears in the output, reference cinematic aesthetic cues (lighting, framing, lens, shot type), anchor realism by stating skin shows subtle pores, light wrinkles, and realistic surface detail, end with "keep everything else unchanged," and include negative safeguards like "no distortion, no blur artifacts.\""""
+                    user_prompt = "Please analyze this image and generate a single-sentence Qwen-Image-Edit instruction following the guidelines in the system prompt."
+                else:  # "Describe without clothing"
+                    # ImageEdit without clothing prompt
+                    system_prompt = """You are an expert assistant generating concise, single-sentence Qwen-Image-Edit instructions; always begin with "Make this person…", specify deep focus ("f/11 for deep focus—no bokeh or blur"), describe allowed traits like pose and posture only (avoid clothing, age, ethnicity, tattoos, hair color, etc.), include clear torso and head orientation (e.g., "torso angled 45° to camera, head turned toward viewer"), include vivid scene details (e.g. bedroom props, lights, furniture) to ensure background appears in the output, reference cinematic aesthetic cues (lighting, framing, lens, shot type), anchor realism by stating skin shows subtle pores, light wrinkles, and realistic surface detail, end with "keep everything else unchanged," and include negative safeguards like "no distortion, no blur artifacts.\""""
+                    user_prompt = "Please analyze this image and generate a single-sentence Qwen-Image-Edit instruction following the guidelines in the system prompt."
             # Convert ComfyUI IMAGE tensor to image data
             # ComfyUI images are typically in format (batch_size, height, width, channels) with values 0-1
 
@@ -552,6 +567,7 @@ CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank li
             # 2. Gemini Status - API and model information
             gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete
 • Model: {gemini_model}
+• Model Type: {model_type}
 • API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
 • Input: Single Image ({pil_image.size[0]}x{pil_image.size[1]})"""
 
@@ -569,6 +585,7 @@ CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank li
             # 2. Gemini Status - Error details
             gemini_status = f"""🤖 Gemini Analysis Status: ❌ Failed
 • Model: {gemini_model}
+• Model Type: {model_type}
 • API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
 • Error: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}
 
