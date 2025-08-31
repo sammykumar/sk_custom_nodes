@@ -34,15 +34,9 @@ class GeminiVideoDescribe:
                     "default": "models/gemini-2.5-flash",
                     "tooltip": "Select the Gemini model to use"
                 }),
-                "system_prompt": ("STRING", {
-                    "multiline": True,
-                    "default": "You are an expert assistant specialized in analyzing and verbalizing input videos for cinematic-quality video transformation using the Wan 2.2 + VACE workflow.\nBefore writing, silently review all provided frames as a single clip and infer motion across time; reason stepwise over the entire sequence (start → middle → end). Do not use meta phrases (e.g., \"this video shows\").\nGenerate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:\n\n1. SUBJECT (First Paragraph)\nBegin with a gendered noun phrase (e.g., \"A woman…\", \"A man…\").\nInclude allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.\nStrictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.\n\n2. SCENE (Second Paragraph)\nDescribe the visible environment clearly and vividly.\n\n3. MOVEMENT (Third Paragraph)\nIn this paragraph, describe body-part–specific movement and how it aligns with musical rhythm and beat structure. Begin with an overall summary: e.g., 'The subject initiates with a hip sway on the downbeat…'. Then narrate movement chronologically, using precise action verbs and transitions like 'then', 'as', and 'after', referencing the timeline (e.g., early/mid/late beat or second). Specify which body parts move, how they articulate (e.g., 'the right arm lifts upward, then sweeps outward; the torso tilts as the knees bend'), describe footwork, weight shifts, and alignment with music beats. Also include any camera movement (e.g., 'camera pans to follow the torso shift'). Avoid general labels—focus on locomotor and non‑locomotor gestures, repetition, rhythm, and choreography phrasing. Always include any buttock or breast movements that you see\n\n4. CINEMATIC AESTHETIC CONTROL (Fourth Paragraph)\nLighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.\n\n5. STYLIZATION & TONE (Fifth Paragraph)\nMood/genre descriptors (e.g., \"noir-inspired silhouette,\" \"cinematic realism,\" etc.).\n\nCRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible.",
-                    "tooltip": "System prompt to set the context for the AI"
-                }),
-                "user_prompt": ("STRING", {
-                    "multiline": True,
-                    "default": "Please analyze this video and provide a detailed description following the 5-paragraph structure outlined in the system prompt.",
-                    "tooltip": "User prompt for the specific task"
+                "description_mode": (["Describe without clothing", "Describe with clothing"], {
+                    "default": "Describe without clothing",
+                    "tooltip": "Choose whether to include detailed clothing description"
                 }),
             },
             "optional": {
@@ -124,20 +118,71 @@ class GeminiVideoDescribe:
             print("FFmpeg not found. Please install ffmpeg to use duration trimming.")
             return False
 
-    def describe_video(self, gemini_api_key, gemini_model, system_prompt, user_prompt, frame_rate=24.0, uploaded_video_file="", max_duration=0.0, prefix_text=""):
+    def describe_video(self, gemini_api_key, gemini_model, description_mode, frame_rate=24.0, uploaded_video_file="", max_duration=0.0, prefix_text=""):
         """
         Process uploaded video file and analyze with Gemini
 
         Args:
             gemini_api_key: Your Gemini API key
             gemini_model: Gemini model to use
-            system_prompt: System context for the AI
-            user_prompt: User's specific request
+            description_mode: Mode for description ("Describe without clothing" or "Describe with clothing")
             frame_rate: Frame rate for temporary video (legacy parameter, not used)
             uploaded_video_file: Path to uploaded video file
             max_duration: Maximum duration in seconds (0 = use full video)
         """
         try:
+            # Set the appropriate system prompt and user prompt based on description mode
+            if description_mode == "Describe with clothing":
+                system_prompt = """You are an expert assistant specialized in analyzing and verbalizing input videos for cinematic-quality video transformation using the Wan 2.2 + VACE workflow.
+Before writing, silently review all provided frames as a single clip and infer motion across time; reason stepwise over the entire sequence (start → middle → end). Do not use meta phrases (e.g., "this video shows").
+Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
+
+1. SUBJECT (First Paragraph)
+Begin with a gendered noun phrase (e.g., "A woman…", "A man…").
+Include allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.
+Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.
+
+2. SCENE (Second Paragraph)
+Describe the visible environment clearly and vividly.
+
+3. MOVEMENT (Third Paragraph)
+In this paragraph, describe body-part–specific movement and how it aligns with musical rhythm and beat structure. Begin with an overall summary: e.g., 'The subject initiates with a hip sway on the downbeat…'. Then narrate movement chronologically, using precise action verbs and transitions like 'then', 'as', and 'after', referencing the timeline (e.g., early/mid/late beat or second). Specify which body parts move, how they articulate (e.g., 'the right arm lifts upward, then sweeps outward; the torso tilts as the knees bend'), describe footwork, weight shifts, and alignment with music beats. Also include any camera movement (e.g., 'camera pans to follow the torso shift'). Avoid general labels—focus on locomotor and non‑locomotor gestures, repetition, rhythm, and choreography phrasing. Always include any buttock or breast movements that you see
+
+4. CINEMATIC AESTHETIC CONTROL (Fourth Paragraph)
+Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.
+
+5. STYLIZATION & TONE (Fifth Paragraph)
+Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.).
+
+6. CLOTHING (Sixth Paragraph)
+Describe all visible clothing and accessories. Be granular: specify garment type, color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and note how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes.
+
+CRITICAL: Output exactly 6 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible."""
+                user_prompt = "Please analyze this video and provide a detailed description following the 6-paragraph structure outlined in the system prompt."
+            else:  # "Describe without clothing"
+                system_prompt = """You are an expert assistant specialized in analyzing and verbalizing input videos for cinematic-quality video transformation using the Wan 2.2 + VACE workflow.
+Before writing, silently review all provided frames as a single clip and infer motion across time; reason stepwise over the entire sequence (start → middle → end). Do not use meta phrases (e.g., "this video shows").
+Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
+
+1. SUBJECT (First Paragraph)
+Begin with a gendered noun phrase (e.g., "A woman…", "A man…").
+Include allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.
+Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.
+
+2. SCENE (Second Paragraph)
+Describe the visible environment clearly and vividly.
+
+3. MOVEMENT (Third Paragraph)
+In this paragraph, describe body-part–specific movement and how it aligns with musical rhythm and beat structure. Begin with an overall summary: e.g., 'The subject initiates with a hip sway on the downbeat…'. Then narrate movement chronologically, using precise action verbs and transitions like 'then', 'as', and 'after', referencing the timeline (e.g., early/mid/late beat or second). Specify which body parts move, how they articulate (e.g., 'the right arm lifts upward, then sweeps outward; the torso tilts as the knees bend'), describe footwork, weight shifts, and alignment with music beats. Also include any camera movement (e.g., 'camera pans to follow the torso shift'). Avoid general labels—focus on locomotor and non‑locomotor gestures, repetition, rhythm, and choreography phrasing. Always include any buttock or breast movements that you see
+
+4. CINEMATIC AESTHETIC CONTROL (Fourth Paragraph)
+Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.
+
+5. STYLIZATION & TONE (Fifth Paragraph)
+Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.).
+
+CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank line. DO NOT describe clothing, accessories, or garments in any paragraph. Never mention prohibited attributes, even if visible."""
+                user_prompt = "Please analyze this video and provide a detailed description following the 5-paragraph structure outlined in the system prompt."
             video_data = None
             video_info_text = ""
             trimmed_video_output_path = ""  # Track the output path for trimmed video
@@ -351,15 +396,9 @@ class GeminiImageDescribe:
                     "default": "models/gemini-2.5-flash",
                     "tooltip": "Select the Gemini model to use"
                 }),
-                "system_prompt": ("STRING", {
-                    "multiline": True,
-                    "default": "Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.\nBefore writing, silently review the provided media. Do not use meta phrases (e.g., \"this picture shows\").\nGenerate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:\nSUBJECT (First Paragraph)\nBegin with a gendered noun phrase (e.g., \"A woman…\", \"A man…\").\nInclude allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.\nStrictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.\nSCENE (Second Paragraph)\nDescribe the visible environment clearly and vividly.\nCINEMATIC AESTHETIC CONTROL (Third Paragraph)\nLighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.\nSTYLIZATION & TONE (Fourth Paragraph)\nMood/genre descriptors (e.g., \"noir-inspired silhouette,\" \"cinematic realism,\" etc.).\nCRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible.",
-                    "tooltip": "System prompt to set the context for the AI"
-                }),
-                "user_prompt": ("STRING", {
-                    "multiline": True,
-                    "default": "Please analyze this image and provide a detailed description following the 4-paragraph structure outlined in the system prompt.",
-                    "tooltip": "User prompt for the specific task"
+                "description_mode": (["Describe without clothing", "Describe with clothing"], {
+                    "default": "Describe without clothing",
+                    "tooltip": "Choose whether to include detailed clothing description"
                 }),
                 "prefix_text": ("STRING", {
                     "multiline": True,
@@ -374,7 +413,7 @@ class GeminiImageDescribe:
     FUNCTION = "describe_image"
     CATEGORY = "Gemini"
 
-    def describe_image(self, image, gemini_api_key, gemini_model, system_prompt, user_prompt, prefix_text=""):
+    def describe_image(self, image, gemini_api_key, gemini_model, description_mode, prefix_text=""):
         """
         Process image tensor and analyze with Gemini
 
@@ -382,10 +421,56 @@ class GeminiImageDescribe:
             image: ComfyUI IMAGE tensor (batch_size, height, width, channels)
             gemini_api_key: Your Gemini API key
             gemini_model: Gemini model to use
-            system_prompt: System context for the AI
-            user_prompt: User's specific request
+            description_mode: Mode for description ("Describe without clothing" or "Describe with clothing")
+            prefix_text: Text to prepend to the generated description
         """
         try:
+            # Set the appropriate system prompt and user prompt based on description mode
+            if description_mode == "Describe with clothing":
+                system_prompt = """Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
+Before writing, silently review the provided media. Do not use meta phrases (e.g., "this picture shows").
+Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
+
+SUBJECT (First Paragraph)
+Begin with a gendered noun phrase (e.g., "A woman…", "A man…").
+Include allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.
+Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.
+
+SCENE (Second Paragraph)
+Describe the visible environment clearly and vividly.
+
+CINEMATIC AESTHETIC CONTROL (Third Paragraph)
+Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.
+
+STYLIZATION & TONE (Fourth Paragraph)
+Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.).
+
+CLOTHING (Fifth Paragraph)
+Describe all visible clothing and accessories. Be granular: specify garment type, color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and note how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes.
+
+CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible."""
+                user_prompt = "Please analyze this image and provide a detailed description following the 5-paragraph structure outlined in the system prompt."
+            else:  # "Describe without clothing"
+                system_prompt = """Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
+Before writing, silently review the provided media. Do not use meta phrases (e.g., "this picture shows").
+Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
+
+SUBJECT (First Paragraph)
+Begin with a gendered noun phrase (e.g., "A woman…", "A man…").
+Include allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.
+Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.
+
+SCENE (Second Paragraph)
+Describe the visible environment clearly and vividly.
+
+CINEMATIC AESTHETIC CONTROL (Third Paragraph)
+Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.
+
+STYLIZATION & TONE (Fourth Paragraph)
+Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.).
+
+CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line. DO NOT describe clothing, accessories, or garments in any paragraph. Never mention prohibited attributes, even if visible."""
+                user_prompt = "Please analyze this image and provide a detailed description following the 4-paragraph structure outlined in the system prompt."
             # Convert ComfyUI IMAGE tensor to image data
             # ComfyUI images are typically in format (batch_size, height, width, channels) with values 0-1
 
