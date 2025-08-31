@@ -71,6 +71,24 @@ app.registerExtension({
                 return result;
             };
             
+            // Add onExecuted method to update the final_string widget
+            const onExecuted = nodeType.prototype.onExecuted;
+            nodeType.prototype.onExecuted = function(message) {
+                const result = onExecuted?.apply(this, arguments);
+                
+                // Update final_string widget with the actual output
+                if (message && message.output && this.finalStringWidget) {
+                    // final_string is the 5th output (index 4) for GeminiUtilVideoDescribe
+                    const finalStringOutput = message.output[4]; 
+                    if (finalStringOutput && finalStringOutput.length > 0) {
+                        this.finalStringWidget.value = finalStringOutput[0];
+                        console.log("Updated final_string widget with:", finalStringOutput[0]);
+                    }
+                }
+                
+                return result;
+            };
+            
             // Method to clear previous video preview
             nodeType.prototype.clearVideoPreview = function() {
                 // Stop and clear existing video element
@@ -447,6 +465,24 @@ app.registerExtension({
                     }
                 );
                 this.finalStringWidget.serialize = false;
+                
+                return result;
+            };
+            
+            // Add onExecuted method to update the final_string widget
+            const onExecutedImage = nodeType.prototype.onExecuted;
+            nodeType.prototype.onExecuted = function(message) {
+                const result = onExecutedImage?.apply(this, arguments);
+                
+                // Update final_string widget with the actual output
+                if (message && message.output && this.finalStringWidget) {
+                    // final_string is the 3rd output (index 2) for GeminiUtilImageDescribe
+                    const finalStringOutput = message.output[2]; 
+                    if (finalStringOutput && finalStringOutput.length > 0) {
+                        this.finalStringWidget.value = finalStringOutput[0];
+                        console.log("Updated final_string widget with:", finalStringOutput[0]);
+                    }
+                }
                 
                 return result;
             };
