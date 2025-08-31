@@ -442,20 +442,17 @@ Begin with a gendered noun phrase (e.g., "A woman…", "A man…").
 Include allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.
 Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.
 
-SCENE (Second Paragraph)
-Describe the visible environment clearly and vividly.
-
-CINEMATIC AESTHETIC CONTROL (Third Paragraph)
+CINEMATIC AESTHETIC CONTROL (Second Paragraph)
 Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.
 
-STYLIZATION & TONE (Fourth Paragraph)
+STYLIZATION & TONE (Third Paragraph)
 Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.).
 
-CLOTHING (Fifth Paragraph)
+CLOTHING (Fourth Paragraph)
 Describe all visible clothing and accessories. Be granular: specify garment type, color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and note how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes.
 
-CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible."""
-                    user_prompt = "Please analyze this image and provide a detailed description following the 5-paragraph structure outlined in the system prompt."
+CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible."""
+                    user_prompt = "Please analyze this image and provide a detailed description following the 4-paragraph structure outlined in the system prompt."
                 else:  # "Describe without clothing"
                     system_prompt = """Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
 Before writing, silently review the provided media. Do not use meta phrases (e.g., "this picture shows").
@@ -466,17 +463,14 @@ Begin with a gendered noun phrase (e.g., "A woman…", "A man…").
 Include allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.
 Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.
 
-SCENE (Second Paragraph)
-Describe the visible environment clearly and vividly.
-
-CINEMATIC AESTHETIC CONTROL (Third Paragraph)
+CINEMATIC AESTHETIC CONTROL (Second Paragraph)
 Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.
 
-STYLIZATION & TONE (Fourth Paragraph)
+STYLIZATION & TONE (Third Paragraph)
 Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.).
 
-CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line. DO NOT describe clothing, accessories, or garments in any paragraph. Never mention prohibited attributes, even if visible."""
-                    user_prompt = "Please analyze this image and provide a detailed description following the 4-paragraph structure outlined in the system prompt."
+CRITICAL: Output exactly 3 paragraphs, one per category, separated by a blank line. DO NOT describe clothing, accessories, or garments in any paragraph. Never mention prohibited attributes, even if visible."""
+                    user_prompt = "Please analyze this image and provide a detailed description following the 3-paragraph structure outlined in the system prompt."
             else:  # model_type == "ImageEdit"
                 if description_mode == "Describe with clothing":
                     # ImageEdit with clothing prompt
