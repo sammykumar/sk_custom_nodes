@@ -312,10 +312,35 @@ CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank li
                 config=generate_content_config,
             )
 
+            # Debug: Check response object
+            print(f"[DEBUG] Response object: {response}")
+            print(f"[DEBUG] Response type: {type(response)}")
+            print(f"[DEBUG] Response.text: {response.text}")
+            print(f"[DEBUG] Response.text type: {type(response.text)}")
+            
+            # Check if response has other useful attributes
+            if hasattr(response, 'candidates'):
+                print(f"[DEBUG] Response.candidates: {response.candidates}")
+            if hasattr(response, 'prompt_feedback'):
+                print(f"[DEBUG] Response.prompt_feedback: {response.prompt_feedback}")
+            if hasattr(response, '_content'):
+                print(f"[DEBUG] Response._content: {response._content}")
+
             # Format the four separate outputs
 
             # 1. Description - Clean output from Gemini (for direct use as prompt)
-            description = response.text.strip()
+            # Add safety check for None response.text
+            if response.text is not None:
+                description = response.text.strip()
+            else:
+                # Provide more detailed error information
+                error_msg = "Error: Gemini returned empty response"
+                if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+                    error_msg += f" (Prompt feedback: {response.prompt_feedback})"
+                if hasattr(response, 'candidates') and response.candidates:
+                    error_msg += f" (Candidates available: {len(response.candidates)})"
+                description = error_msg
+                print("[ERROR] Gemini response.text is None")
 
             # 2. Video Info - Technical details about the processed video
             video_info = video_info_text
@@ -553,10 +578,35 @@ CRITICAL: Output exactly 3 paragraphs, one per category, separated by a blank li
                 config=generate_content_config,
             )
 
+            # Debug: Check response object
+            print(f"[DEBUG] Response object: {response}")
+            print(f"[DEBUG] Response type: {type(response)}")
+            print(f"[DEBUG] Response.text: {response.text}")
+            print(f"[DEBUG] Response.text type: {type(response.text)}")
+            
+            # Check if response has other useful attributes
+            if hasattr(response, 'candidates'):
+                print(f"[DEBUG] Response.candidates: {response.candidates}")
+            if hasattr(response, 'prompt_feedback'):
+                print(f"[DEBUG] Response.prompt_feedback: {response.prompt_feedback}")
+            if hasattr(response, '_content'):
+                print(f"[DEBUG] Response._content: {response._content}")
+
             # Format the three outputs
 
             # 1. Description - Clean output from Gemini (for direct use as prompt)
-            description = response.text.strip()
+            # Add safety check for None response.text
+            if response.text is not None:
+                description = response.text.strip()
+            else:
+                # Provide more detailed error information
+                error_msg = "Error: Gemini returned empty response"
+                if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+                    error_msg += f" (Prompt feedback: {response.prompt_feedback})"
+                if hasattr(response, 'candidates') and response.candidates:
+                    error_msg += f" (Candidates available: {len(response.candidates)})"
+                description = error_msg
+                print("[ERROR] Gemini response.text is None")
 
             # 2. Gemini Status - API and model information
             gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete
