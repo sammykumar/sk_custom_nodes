@@ -142,20 +142,20 @@ Begin with a gendered noun phrase (e.g., "A woman…", "A man…").
 Include allowed visual traits: hairstyle and its texture or motion (no color or length), makeup, posture, gestures.
 Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height.
 
-2. SCENE (Second Paragraph)
+2. CLOTHING (Second Paragraph)
+Describe all visible clothing and accessories. Be granular: specify garment type, color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and note how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes.
+
+3. SCENE (Third Paragraph)
 Describe the visible environment clearly and vividly.
 
-3. MOVEMENT (Third Paragraph)
+4. MOVEMENT (Fourth Paragraph)
 In this paragraph, describe body-part–specific movement and how it aligns with musical rhythm and beat structure. Begin with an overall summary: e.g., 'The subject initiates with a hip sway on the downbeat…'. Then narrate movement chronologically, using precise action verbs and transitions like 'then', 'as', and 'after', referencing the timeline (e.g., early/mid/late beat or second). Specify which body parts move, how they articulate (e.g., 'the right arm lifts upward, then sweeps outward; the torso tilts as the knees bend'), describe footwork, weight shifts, and alignment with music beats. Also include any camera movement (e.g., 'camera pans to follow the torso shift'). Avoid general labels—focus on locomotor and non‑locomotor gestures, repetition, rhythm, and choreography phrasing. Always include any buttock or breast movements that you see
 
-4. CINEMATIC AESTHETIC CONTROL (Fourth Paragraph)
+5. CINEMATIC AESTHETIC CONTROL (Fifth Paragraph)
 Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable.
 
-5. STYLIZATION & TONE (Fifth Paragraph)
+6. STYLIZATION & TONE (Sixth Paragraph)
 Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.).
-
-6. CLOTHING (Sixth Paragraph)
-Describe all visible clothing and accessories. Be granular: specify garment type, color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and note how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes.
 
 CRITICAL: Output exactly 6 paragraphs, one per category, separated by a blank line. Never mention prohibited attributes, even if visible."""
                 user_prompt = "Please analyze this video and provide a detailed description following the 6-paragraph structure outlined in the system prompt."
