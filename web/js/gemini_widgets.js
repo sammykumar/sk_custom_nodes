@@ -571,7 +571,6 @@ app.registerExtension({
                     this.removeWidgetSafely(this.imageInfoWidget);
                     this.removeWidgetSafely(this.videoUploadWidget);
                     this.removeWidgetSafely(this.videoInfoWidget);
-                    this.removeWidgetSafely(this.randomizeSeedWidget);
                     // Don't remove the original media_path widget, just manage its visibility
                     // this.removeWidgetSafely(this.mediaPathWidget);
 
@@ -580,7 +579,6 @@ app.registerExtension({
                     this.imageInfoWidget = null;
                     this.videoUploadWidget = null;
                     this.videoInfoWidget = null;
-                    this.randomizeSeedWidget = null;
                     // this.mediaPathWidget = null;
 
                     // Manage visibility of original input widgets
@@ -603,16 +601,7 @@ app.registerExtension({
                             console.log("[STATE] Showing seed widget for randomization");
                         }
 
-                        // Add randomize seed button for convenience
-                        this.randomizeSeedWidget = this.addWidget(
-                            "button",
-                            "🎲 Randomize Seed",
-                            "randomize_seed",
-                            () => {
-                                this.onRandomizeSeedButtonPressed();
-                            }
-                        );
-                        this.randomizeSeedWidget.serialize = false;
+                        // Note: Seed randomization is handled by ComfyUI's built-in controls
 
                         // Hide upload file widgets
                         if (originalUploadedImageWidget) {
@@ -1070,26 +1059,6 @@ app.registerExtension({
                 console.log("Video preview cleared for media node");
             };
 
-            // Add randomize seed button handler
-            nodeType.prototype.onRandomizeSeedButtonPressed = function () {
-                console.log("Randomize seed button pressed!");
-                
-                // Find the seed widget
-                const seedWidget = this.widgets.find((w) => w.name === "seed");
-                if (seedWidget) {
-                    // Generate a random seed (large integer)
-                    const randomSeed = Math.floor(Math.random() * 0xFFFFFFFFFFFFFFFF);
-                    seedWidget.value = randomSeed;
-                    console.log(`[SEED] Generated random seed: ${randomSeed}`);
-                    
-                    // Trigger widget update to ensure ComfyUI recognizes the change
-                    if (seedWidget.callback) {
-                        seedWidget.callback(randomSeed);
-                    }
-                } else {
-                    console.warn("[SEED] Could not find seed widget for randomization");
-                }
-            };
         }
     },
 
