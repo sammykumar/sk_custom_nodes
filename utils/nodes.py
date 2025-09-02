@@ -258,7 +258,8 @@ CRITICAL: Output exactly 3 paragraphs, one per category, separated by a blank li
                     error_msg += f" (Prompt feedback: {response.prompt_feedback})"
                 if hasattr(response, 'candidates') and response.candidates:
                     error_msg += f" (Candidates available: {len(response.candidates)})"
-                description = error_msg
+                # Raise exception to stop workflow execution
+                raise RuntimeError(error_msg)
 
             # Format outputs for image processing
             gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete
@@ -273,21 +274,8 @@ CRITICAL: Output exactly 3 paragraphs, one per category, separated by a blank li
             return (description, media_info_text, gemini_status, processed_media_path, final_string)
 
         except Exception as e:
-            description = f"Error: Image analysis failed - {str(e)}"
-            gemini_status = f"""🤖 Gemini Analysis Status: ❌ Failed
-• Model: {gemini_model}
-• Model Type: {model_type}
-• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
-• Error: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}
-
-Please check:
-1. API key is valid and has quota
-2. Image input is connected properly
-3. Internet connectivity
-4. Model supports image analysis"""
-            processed_media_path = ""
-            final_string = f"{prefix_text}{description}" if prefix_text else description
-            return (description, media_info_text, gemini_status, processed_media_path, final_string)
+            # Re-raise the exception to stop workflow execution
+            raise Exception(f"Image analysis failed: {str(e)}")
 
     def _process_video(self, gemini_api_key, gemini_model, description_mode, prefix_text, selected_media_path, frame_rate, max_duration, media_info_text):
         """
@@ -502,7 +490,8 @@ CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank li
                     error_msg += f" (Prompt feedback: {response.prompt_feedback})"
                 if hasattr(response, 'candidates') and response.candidates:
                     error_msg += f" (Candidates available: {len(response.candidates)})"
-                description = error_msg
+                # Raise exception to stop workflow execution
+                raise RuntimeError(error_msg)
 
             # Format outputs for video processing
             gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete
@@ -515,20 +504,8 @@ CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank li
             return (description, updated_media_info, gemini_status, trimmed_video_output_path, final_string)
 
         except Exception as e:
-            description = f"Error: Video analysis failed - {str(e)}"
-            gemini_status = f"""🤖 Gemini Analysis Status: ❌ Failed
-• Model: {gemini_model}
-• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
-• Error: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}
-
-Please check:
-1. API key is valid and has quota
-2. Video file exists and is accessible
-3. Internet connectivity
-4. Model supports video analysis"""
-            processed_media_path = ""
-            final_string = f"{prefix_text}{description}" if prefix_text else description
-            return (description, media_info_text, gemini_status, processed_media_path, final_string)
+            # Re-raise the exception to stop workflow execution
+            raise Exception(f"Video analysis failed: {str(e)}")
 
     @classmethod
     def INPUT_TYPES(s):
@@ -567,12 +544,6 @@ Please check:
                 "media_type": (["image", "video"], {
                     "default": "image",
                     "tooltip": "Select the type of media to analyze"
-                }),
-                "seed": ("INT", {
-                    "default": 0,
-                    "min": 0,
-                    "max": 0xFFFFFFFFFFFFFFFF,
-                    "tooltip": "Seed for randomization when using 'Randomize Media from Path'. Use different seeds to force re-execution."
                 }),
             },
             "optional": {
@@ -614,7 +585,7 @@ Please check:
     FUNCTION = "describe_media"
     CATEGORY = "Gemini"
 
-    def describe_media(self, gemini_api_key, gemini_model, model_type, description_mode, prefix_text, media_source, media_type, seed, image=None, media_path="", uploaded_image_file="", uploaded_video_file="", frame_rate=24.0, max_duration=0.0):
+    def describe_media(self, gemini_api_key, gemini_model, model_type, description_mode, prefix_text, media_source, media_type, image=None, media_path="", uploaded_image_file="", uploaded_video_file="", frame_rate=24.0, max_duration=0.0):
         """
         Process media (image or video) and analyze with Gemini
 
@@ -626,7 +597,6 @@ Please check:
             prefix_text: Text to prepend to the generated description
             media_source: Source of media ("Upload Media" or "Randomize Media from Path")
             media_type: Type of media ("image" or "video")
-            seed: Seed for randomization when using "Randomize Media from Path" (forces re-execution)
             image: ComfyUI IMAGE tensor (optional, used for uploaded images)
             media_path: Directory path to randomly select media from, including subdirectories (optional)
             uploaded_image_file: Path to uploaded image file (optional)
@@ -634,6 +604,10 @@ Please check:
             frame_rate: Frame rate for temporary video (legacy parameter, not used)
             max_duration: Maximum duration in seconds (0 = use full video, only applies to videos)
         """
+        # Initialize variables that might be needed in exception handler
+        selected_media_path = None
+        media_info_text = ""
+
         try:
             # Import required modules
             import os
@@ -641,9 +615,6 @@ Please check:
             import glob
 
             # First, determine what media we're processing
-            selected_media_path = None
-            media_info_text = ""
-            processed_media_path = ""
 
             if media_source == "Randomize Media from Path":
                 if not media_path or not media_path.strip():
@@ -753,27 +724,8 @@ Directory scan results:
                 )
 
         except Exception as e:
-            # Handle errors gracefully with five outputs
-            description = f"Error: Media analysis failed - {str(e)}"
-            media_info = f"""📱 Media Processing Info:
-• Status: ❌ Processing Failed
-• Media Source: {media_source}
-• Media Type: {media_type}"""
-            gemini_status = f"""🤖 Gemini Analysis Status: ❌ Failed
-• Model: {gemini_model}
-• Model Type: {model_type if media_type == 'image' else 'N/A (Video)'}
-• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
-• Error: {str(e)[:100]}{'...' if len(str(e)) > 100 else ''}
-
-Please check:
-1. API key is valid and has quota
-2. Media input is provided correctly
-3. Directory path exists (if using Randomize Media from Path)
-4. Internet connectivity
-5. Model supports media analysis"""
-            processed_media_path = ""
-            final_string = f"{prefix_text}{description}" if prefix_text else description
-            return (description, media_info, gemini_status, processed_media_path, final_string)
+            # Re-raise the exception to stop workflow execution
+            raise Exception(f"Media analysis failed: {str(e)}")
 
 
 # A dictionary that contains all nodes you want to export with their names

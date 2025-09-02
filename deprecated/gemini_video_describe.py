@@ -4,9 +4,6 @@ import cv2
 import tempfile
 import os
 import subprocess
-import numpy as np
-from PIL import Image
-import io
 
 class GeminiVideoDescribe:
     """
