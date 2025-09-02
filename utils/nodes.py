@@ -277,20 +277,22 @@ Generate descriptions that adhere to the following structured layers and constra
             else:
                 # For tensor-based media, use content hash
                 media_identifier = get_tensor_media_identifier(image)
-            
+
             # Check cache for existing result
             cache = get_cache()
             cached_result = cache.get(
                 media_identifier=media_identifier,
-                description_mode=description_mode, 
                 gemini_model=gemini_model,
-                model_type=model_type
+                model_type=model_type,
+                describe_clothing=describe_clothing,
+                describe_hair_style=describe_hair_style,
+                describe_bokeh=describe_bokeh
             )
-            
+
             if cached_result is not None:
                 # Return cached result
                 description = cached_result['description']
-                
+
                 # Format outputs for cached image processing
                 gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete (Cached)
 • Model: {gemini_model}
@@ -343,14 +345,16 @@ Generate descriptions that adhere to the following structured layers and constra
             # Process response
             if response.text is not None:
                 description = response.text.strip()
-                
+
                 # Store successful result in cache
                 cache.set(
                     media_identifier=media_identifier,
-                    description_mode=description_mode,
                     gemini_model=gemini_model,
                     description=description,
-                    model_type=model_type
+                    model_type=model_type,
+                    describe_clothing=describe_clothing,
+                    describe_hair_style=describe_hair_style,
+                    describe_bokeh=describe_bokeh
                 )
             else:
                 error_msg = "Error: Gemini returned empty response"
@@ -518,20 +522,22 @@ Generate descriptions that adhere to the following structured layers and constra
 
             # Determine media identifier for caching (always file-based for videos)
             media_identifier = get_file_media_identifier(selected_media_path)
-            
+
             # Check cache for existing result
             cache = get_cache()
             cached_result = cache.get(
                 media_identifier=media_identifier,
-                description_mode=description_mode, 
                 gemini_model=gemini_model,
-                model_type=""  # Videos don't use model_type
+                model_type="",  # Videos don't use model_type
+                describe_clothing=describe_clothing,
+                describe_hair_style=describe_hair_style,
+                describe_bokeh=describe_bokeh
             )
-            
+
             if cached_result is not None:
                 # Return cached result
                 description = cached_result['description']
-                
+
                 # Format outputs for cached video processing
                 gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete (Cached)
 • Model: {gemini_model}
@@ -583,14 +589,16 @@ Generate descriptions that adhere to the following structured layers and constra
             # Process response
             if response.text is not None:
                 description = response.text.strip()
-                
+
                 # Store successful result in cache
                 cache.set(
                     media_identifier=media_identifier,
-                    description_mode=description_mode,
                     gemini_model=gemini_model,
                     description=description,
-                    model_type=""  # Videos don't use model_type
+                    model_type="",  # Videos don't use model_type
+                    describe_clothing=describe_clothing,
+                    describe_hair_style=describe_hair_style,
+                    describe_bokeh=describe_bokeh
                 )
             else:
                 error_msg = "Error: Gemini returned empty response"

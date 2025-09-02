@@ -2,7 +2,7 @@
 Cache utility for Gemini media descriptions.
 
 Provides transparent caching of Gemini API responses based on media content and prompts.
-Cache keys combine media identifiers with description modes to ensure unique storage
+Cache keys combine media identifiers with configurable option flags to ensure unique storage
 per media+prompt combination.
 """
 
@@ -17,11 +17,12 @@ class GeminiCache:
     """
     Simple file-based cache for Gemini media descriptions.
 
-    Cache key format: hash(media_identifier + description_mode + model_info)
+    Cache key format: hash(media_identifier + gemini_model + model_type + option_flags)
     Where:
     - media_identifier is file_path+mtime for files, or content_hash for tensors
-    - description_mode is the prompt selection (e.g., "Describe without clothing")
-    - model_info includes model name and type
+    - gemini_model is the model name (e.g., "models/gemini-2.5-flash")
+    - model_type is for images only (e.g., "Text2Image", "ImageEdit")
+    - option_flags include clothing, hair_style, and bokeh boolean settings
     """
 
     def __init__(self, cache_dir: Optional[str] = None):
@@ -50,14 +51,17 @@ class GeminiCache:
         hash_obj = hashlib.sha256(tensor_str.encode('utf-8'))
         return f"tensor:{hash_obj.hexdigest()[:16]}"
 
-    def _get_cache_key(self, media_identifier: str, description_mode: str, 
-                      gemini_model: str, model_type: str = "") -> str:
-        """Generate cache key from media identifier and prompt settings."""
+    def _get_cache_key(self, media_identifier: str, gemini_model: str, 
+                      model_type: str = "", describe_clothing: bool = False,
+                      describe_hair_style: bool = True, describe_bokeh: bool = True) -> str:
+        """Generate cache key from media identifier and configurable option settings."""
         key_components = [
             media_identifier,
-            description_mode,
             gemini_model,
-            model_type
+            model_type,
+            f"clothing:{describe_clothing}",
+            f"hair:{describe_hair_style}",
+            f"bokeh:{describe_bokeh}"
         ]
         key_string = "|".join(key_components)
         hash_obj = hashlib.sha256(key_string.encode('utf-8'))
@@ -67,22 +71,26 @@ class GeminiCache:
         """Get the file path for storing cache entry."""
         return os.path.join(self.cache_dir, f"{cache_key}.json")
 
-    def get(self, media_identifier: str, description_mode: str, 
-            gemini_model: str, model_type: str = "") -> Optional[Dict[str, Any]]:
+    def get(self, media_identifier: str, gemini_model: str, 
+            model_type: str = "", describe_clothing: bool = False,
+            describe_hair_style: bool = True, describe_bokeh: bool = True) -> Optional[Dict[str, Any]]:
         """
         Retrieve cached description if available.
 
         Args:
             media_identifier: Unique identifier for the media
-            description_mode: The description prompt mode
             gemini_model: The Gemini model being used
             model_type: The model type (e.g., "Text2Image", "ImageEdit")
+            describe_clothing: Whether to include clothing descriptions
+            describe_hair_style: Whether to include hair style descriptions
+            describe_bokeh: Whether to include bokeh/depth of field effects
 
         Returns:
             Cached result dictionary or None if not found
         """
-        cache_key = self._get_cache_key(media_identifier, description_mode, 
-                                       gemini_model, model_type)
+        cache_key = self._get_cache_key(media_identifier, gemini_model, 
+                                       model_type, describe_clothing,
+                                       describe_hair_style, describe_bokeh)
         cache_file = self._get_cache_file_path(cache_key)
 
         if not os.path.exists(cache_file):
@@ -107,30 +115,36 @@ class GeminiCache:
                 pass
             return None
 
-    def set(self, media_identifier: str, description_mode: str, 
-            gemini_model: str, description: str, model_type: str = "",
+    def set(self, media_identifier: str, gemini_model: str, description: str,
+            model_type: str = "", describe_clothing: bool = False,
+            describe_hair_style: bool = True, describe_bokeh: bool = True,
             extra_data: Optional[Dict[str, Any]] = None) -> None:
         """
         Store description in cache.
 
         Args:
             media_identifier: Unique identifier for the media
-            description_mode: The description prompt mode
             gemini_model: The Gemini model being used
             description: The generated description text
             model_type: The model type (e.g., "Text2Image", "ImageEdit")
+            describe_clothing: Whether to include clothing descriptions
+            describe_hair_style: Whether to include hair style descriptions
+            describe_bokeh: Whether to include bokeh/depth of field effects
             extra_data: Additional data to store (e.g., status, video_info)
         """
-        cache_key = self._get_cache_key(media_identifier, description_mode, 
-                                       gemini_model, model_type)
+        cache_key = self._get_cache_key(media_identifier, gemini_model, 
+                                       model_type, describe_clothing,
+                                       describe_hair_style, describe_bokeh)
         cache_file = self._get_cache_file_path(cache_key)
 
         cache_entry = {
             'cache_key': cache_key,
             'media_identifier': media_identifier,
-            'description_mode': description_mode,
             'gemini_model': gemini_model,
             'model_type': model_type,
+            'describe_clothing': describe_clothing,
+            'describe_hair_style': describe_hair_style,
+            'describe_bokeh': describe_bokeh,
             'description': description,
             'timestamp': time.time(),
             'human_timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
