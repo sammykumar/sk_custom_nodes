@@ -1303,6 +1303,12 @@ Please check:
                     "default": "image",
                     "tooltip": "Select the type of media to analyze"
                 }),
+                "seed": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 0xFFFFFFFFFFFFFFFF,
+                    "tooltip": "Seed for randomization when using 'Randomize Media from Path'. Use different seeds to force re-execution."
+                }),
             },
             "optional": {
                 "image": ("IMAGE", {
@@ -1343,7 +1349,7 @@ Please check:
     FUNCTION = "describe_media"
     CATEGORY = "Gemini"
 
-    def describe_media(self, gemini_api_key, gemini_model, model_type, description_mode, prefix_text, media_source, media_type, image=None, media_path="", uploaded_image_file="", uploaded_video_file="", frame_rate=24.0, max_duration=0.0):
+    def describe_media(self, gemini_api_key, gemini_model, model_type, description_mode, prefix_text, media_source, media_type, seed, image=None, media_path="", uploaded_image_file="", uploaded_video_file="", frame_rate=24.0, max_duration=0.0):
         """
         Process media (image or video) and analyze with Gemini
 
@@ -1355,6 +1361,7 @@ Please check:
             prefix_text: Text to prepend to the generated description
             media_source: Source of media ("Upload Media" or "Randomize Media from Path")
             media_type: Type of media ("image" or "video")
+            seed: Seed for randomization when using "Randomize Media from Path" (forces re-execution)
             image: ComfyUI IMAGE tensor (optional, used for uploaded images)
             media_path: Directory path to randomly select media from (optional)
             uploaded_image_file: Path to uploaded image file (optional)
