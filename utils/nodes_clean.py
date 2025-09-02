@@ -846,20 +846,7 @@ class GeminiMediaDescribe:
                 
                 # Validate path exists
                 if not os.path.exists(media_path):
-                    # Try to provide helpful debugging info
-                    current_dir = os.getcwd()
-                    parent_dir = os.path.dirname(media_path) if media_path else "N/A"
-                    parent_exists = os.path.exists(parent_dir) if parent_dir else False
-                    
-                    debug_info = f"""
-Path Debug Info:
-• Requested path: {media_path}
-• Current working dir: {current_dir}
-• Parent directory: {parent_dir}
-• Parent exists: {parent_exists}
-• Is absolute path: {os.path.isabs(media_path) if media_path else False}"""
-                    
-                    raise ValueError(f"Media path does not exist: {media_path}{debug_info}")
+                    raise ValueError(f"Media path does not exist: {media_path}")
                 
                 # Define supported file extensions
                 if media_type == "image":
@@ -874,24 +861,7 @@ Path Debug Info:
                     all_files.extend(glob.glob(os.path.join(media_path, ext.upper())))
                 
                 if not all_files:
-                    # Enhanced debugging for file search
-                    try:
-                        dir_contents = os.listdir(media_path)
-                        total_files = len(dir_contents)
-                        sample_files = dir_contents[:5]  # Show first 5 files
-                        
-                        debug_info = f"""
-Directory scan results:
-• Path: {media_path}
-• Total items in directory: {total_files}
-• Sample files: {sample_files}
-• Looking for {media_type} files with extensions: {extensions}"""
-                        
-                        raise ValueError(f"No {media_type} files found in path: {media_path}{debug_info}")
-                    except PermissionError:
-                        raise ValueError(f"Permission denied accessing path: {media_path}")
-                    except Exception as scan_error:
-                        raise ValueError(f"Error scanning path {media_path}: {str(scan_error)}")
+                    raise ValueError(f"No {media_type} files found in path: {media_path}")
                 
                 # Randomly select a file
                 selected_file = random.choice(all_files)

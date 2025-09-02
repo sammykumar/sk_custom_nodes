@@ -1,0 +1,20 @@
+{
+    "name": "sk-custom-nodes",
+    "version": "1.0.0",
+    "description": "ComfyUI custom nodes for Gemini AI integration",
+    "main": "__init__.py",
+    "scripts": {
+        "build": "cd ui-react_backup/ui && npm run build",
+        "watch": "cd ui-react_backup/ui && npm run watch",
+        "test": "cd web/tests && npm test",
+        "test:install": "cd web/tests && npm install && npm run install-browser"
+    },
+    "keywords": [
+        "comfyui",
+        "gemini",
+        "ai",
+        "custom-nodes"
+    ],
+    "author": "SK Custom Nodes",
+    "license": "MIT"
+}
