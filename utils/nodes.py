@@ -1416,7 +1416,7 @@ Path Debug Info:
                     try:
                         dir_contents = os.listdir(media_path)
                         total_files = len(dir_contents)
-                        sample_files = dir_contents[:5]
+                        sample_files = dir_contents[:5]  # Show first 5 files
 
                         debug_info = f"""
 Directory scan results:

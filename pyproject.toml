@@ -15,18 +15,22 @@ requires-python = ">=3.10"
 classifiers = []
 dependencies = [
     "google-genai",
+    "opencv-python",
+    "pillow",
 ]
 
 
 
 [project.optional-dependencies]
 dev = [
+    "black",     # code formatting
     "bump-my-version",
     "coverage",  # testing
-    "mypy",  # linting
+    "mypy",      # type checking
     "pre-commit", # runs linting on commit
-    "pytest",  # testing
-    "ruff",  # linting
+    "pytest",    # testing
+    "pytest-cov", # coverage reporting
+    "ruff",      # linting
 ]
 
 [project.urls]
