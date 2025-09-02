@@ -1,0 +1,10 @@
+{
+  "cache_key": "12ad0a4e8484dd9b0c51946817f1f2d325198bea9052a4101e5a6ef76a27f322",
+  "media_identifier": "test_model_isolation",
+  "description_mode": "Describe without clothing",
+  "gemini_model": "models/gemini-2.5-pro",
+  "model_type": "",
+  "description": "Pro model description",
+  "timestamp": 1756808122.0377798,
+  "human_timestamp": "2025-09-02 10:15:22"
+}

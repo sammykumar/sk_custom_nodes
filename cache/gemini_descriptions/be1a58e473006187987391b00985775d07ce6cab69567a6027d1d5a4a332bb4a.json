@@ -1,0 +1,10 @@
+{
+  "cache_key": "be1a58e473006187987391b00985775d07ce6cab69567a6027d1d5a4a332bb4a",
+  "media_identifier": "test_video.mp4:mtime:123456:size:1000000",
+  "description_mode": "Describe without clothing",
+  "gemini_model": "models/gemini-2.5-flash",
+  "model_type": "",
+  "description": "A woman dancing gracefully in a studio setting.",
+  "timestamp": 1756808122.0218127,
+  "human_timestamp": "2025-09-02 10:15:22"
+}

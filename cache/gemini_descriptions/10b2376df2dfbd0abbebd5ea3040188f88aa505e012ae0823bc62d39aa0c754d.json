@@ -1,0 +1,10 @@
+{
+  "cache_key": "10b2376df2dfbd0abbebd5ea3040188f88aa505e012ae0823bc62d39aa0c754d",
+  "media_identifier": "test_media_isolation",
+  "description_mode": "Describe with clothing",
+  "gemini_model": "models/gemini-2.5-flash",
+  "model_type": "",
+  "description": "A woman wearing a flowing blue dress, with flowing hair and elegant gestures.",
+  "timestamp": 1756808122.0361135,
+  "human_timestamp": "2025-09-02 10:15:22"
+}

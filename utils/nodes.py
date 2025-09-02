@@ -7,6 +7,7 @@ import subprocess
 import numpy as np
 from PIL import Image
 import io
+from .cache import get_cache, get_file_media_identifier, get_tensor_media_identifier
 
 class GeminiVideoDescribe:
     """
@@ -327,6 +328,26 @@ CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank li
             if video_data is None:
                 raise RuntimeError("Failed to process video data")
 
+            # Cache: Check if we have a cached result for this video + description_mode combination
+            cache = get_cache()
+            media_identifier = get_file_media_identifier(final_video_path)
+            cached_result = cache.get(media_identifier, description_mode, gemini_model)
+
+            if cached_result:
+                print(f"[CACHE] Using cached result for {os.path.basename(final_video_path)} + '{description_mode}'")
+                description = cached_result['description']
+
+                # Use cached description but still provide current video info and status
+                gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete (Cached)
+• Model: {gemini_model}
+• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
+• Cached: {cached_result.get('human_timestamp', 'Unknown time')}"""
+
+                # Create final string with prefix
+                final_string = f"{prefix_text}{description}" if prefix_text else description
+
+                return (description, video_info_text, gemini_status, trimmed_video_output_path, final_string)
+
             # Initialize the Gemini client
             client = genai.Client(api_key=gemini_api_key)
 
@@ -383,6 +404,21 @@ CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank li
             # Add safety check for None response.text
             if response.text is not None:
                 description = response.text.strip()
+
+                # Cache: Store successful result for future use
+                cache.set(
+                    media_identifier, 
+                    description_mode, 
+                    gemini_model, 
+                    description,
+                    extra_data={
+                        'video_info': video_info_text,
+                        'file_path': final_video_path,
+                        'file_size_mb': len(video_data) / 1024 / 1024
+                    }
+                )
+                print(f"[CACHE] Stored result for {os.path.basename(final_video_path)} + '{description_mode}'")
+
             else:
                 # Provide more detailed error information
                 error_msg = "Error: Gemini returned empty response"
@@ -640,6 +676,28 @@ CRITICAL: Output exactly 3 paragraphs, one per category, separated by a blank li
             pil_image.save(img_byte_arr, format='JPEG')
             image_data = img_byte_arr.getvalue()
 
+            # Cache: Check if we have a cached result for this image + description_mode combination
+            cache = get_cache()
+            media_identifier = get_tensor_media_identifier(image)
+            cached_result = cache.get(media_identifier, description_mode, gemini_model, model_type)
+
+            if cached_result:
+                print(f"[CACHE] Using cached result for image tensor + '{description_mode}'")
+                description = cached_result['description']
+
+                # Use cached description but still provide current status
+                gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete (Cached)
+• Model: {gemini_model}
+• Model Type: {model_type}
+• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
+• Input: Single Image ({pil_image.size[0]}x{pil_image.size[1]})
+• Cached: {cached_result.get('human_timestamp', 'Unknown time')}"""
+
+                # Create final string with prefix
+                final_string = f"{prefix_text}{description}" if prefix_text else description
+
+                return (description, gemini_status, final_string)
+
             # Initialize the Gemini client
             client = genai.Client(api_key=gemini_api_key)
 
@@ -696,6 +754,22 @@ CRITICAL: Output exactly 3 paragraphs, one per category, separated by a blank li
             # Add safety check for None response.text
             if response.text is not None:
                 description = response.text.strip()
+
+                # Cache: Store successful result for future use
+                cache.set(
+                    media_identifier, 
+                    description_mode, 
+                    gemini_model, 
+                    description,
+                    model_type,
+                    extra_data={
+                        'image_size': f"{pil_image.size[0]}x{pil_image.size[1]}",
+                        'image_format': 'JPEG',
+                        'tensor_shape': str(image.shape) if hasattr(image, 'shape') else 'unknown'
+                    }
+                )
+                print(f"[CACHE] Stored result for image tensor + '{description_mode}'")
+
             else:
                 # Provide more detailed error information
                 error_msg = "Error: Gemini returned empty response"
@@ -843,14 +917,14 @@ class GeminiMediaDescribe:
             if media_source == "Randomize Media from Path":
                 if not media_path or not media_path.strip():
                     raise ValueError("Media path is required when using 'Randomize Media from Path'")
-                
+
                 # Validate path exists
                 if not os.path.exists(media_path):
                     # Try to provide helpful debugging info
                     current_dir = os.getcwd()
                     parent_dir = os.path.dirname(media_path) if media_path else "N/A"
                     parent_exists = os.path.exists(parent_dir) if parent_dir else False
-                    
+
                     debug_info = f"""
 Path Debug Info:
 • Requested path: {media_path}
@@ -858,45 +932,45 @@ Path Debug Info:
 • Parent directory: {parent_dir}
 • Parent exists: {parent_exists}
 • Is absolute path: {os.path.isabs(media_path) if media_path else False}"""
-                    
+
                     raise ValueError(f"Media path does not exist: {media_path}{debug_info}")
-                
+
                 # Define supported file extensions
                 if media_type == "image":
                     extensions = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.tiff", "*.webp"]
                 else:  # video
                     extensions = ["*.mp4", "*.avi", "*.mov", "*.mkv", "*.wmv", "*.flv", "*.webm"]
-                
+
                 # Find all matching files
                 all_files = []
                 for ext in extensions:
                     all_files.extend(glob.glob(os.path.join(media_path, ext)))
                     all_files.extend(glob.glob(os.path.join(media_path, ext.upper())))
-                
+
                 if not all_files:
                     # Enhanced debugging for file search
                     try:
                         dir_contents = os.listdir(media_path)
                         total_files = len(dir_contents)
                         sample_files = dir_contents[:5]  # Show first 5 files
-                        
+
                         debug_info = f"""
 Directory scan results:
 • Path: {media_path}
 • Total items in directory: {total_files}
 • Sample files: {sample_files}
 • Looking for {media_type} files with extensions: {extensions}"""
-                        
+
                         raise ValueError(f"No {media_type} files found in path: {media_path}{debug_info}")
                     except PermissionError:
                         raise ValueError(f"Permission denied accessing path: {media_path}")
                     except Exception as scan_error:
                         raise ValueError(f"Error scanning path {media_path}: {str(scan_error)}")
-                
+
                 # Randomly select a file
                 selected_file = random.choice(all_files)
                 selected_media_info = f"Random {media_type}: {os.path.basename(selected_file)}"
-                
+
                 # For now, just return info about the selected file
                 description = f"Selected random {media_type} file: {os.path.basename(selected_file)}"
             else:

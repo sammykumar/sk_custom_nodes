@@ -1,0 +1,10 @@
+{
+  "cache_key": "7b82ad8f59e38bfc27664292b2b8714af67909b77d56c8b27a78209be3619703",
+  "media_identifier": "test_file.mp4:mtime:1234567:size:1000",
+  "description_mode": "Describe without clothing",
+  "gemini_model": "models/gemini-2.5-flash",
+  "model_type": "",
+  "description": "A woman dancing in a studio",
+  "timestamp": 1756807815.4687278,
+  "human_timestamp": "2025-09-02 10:10:15"
+}

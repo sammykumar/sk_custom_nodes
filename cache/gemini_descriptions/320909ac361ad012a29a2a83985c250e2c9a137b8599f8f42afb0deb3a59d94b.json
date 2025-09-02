@@ -1,0 +1,10 @@
+{
+  "cache_key": "320909ac361ad012a29a2a83985c250e2c9a137b8599f8f42afb0deb3a59d94b",
+  "media_identifier": "test_media",
+  "description_mode": "Describe without clothing",
+  "gemini_model": "models/gemini-2.5-flash",
+  "model_type": "",
+  "description": "Test description",
+  "timestamp": 1756808078.2707293,
+  "human_timestamp": "2025-09-02 10:14:38"
+}

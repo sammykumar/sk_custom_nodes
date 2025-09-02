@@ -1,0 +1,10 @@
+{
+  "cache_key": "97b12a475d25e284ad8795e158636624a102eb7d32e5fff3e2b49088f33bbeb0",
+  "media_identifier": "test_media_isolation",
+  "description_mode": "Describe without clothing",
+  "gemini_model": "models/gemini-2.5-flash",
+  "model_type": "",
+  "description": "A woman with flowing hair, graceful posture, and elegant gestures.",
+  "timestamp": 1756808122.0358448,
+  "human_timestamp": "2025-09-02 10:15:22"
+}
