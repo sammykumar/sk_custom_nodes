@@ -875,6 +875,60 @@ app.registerExtension({
                 return result;
             };
 
+            // Add onSerialize method to save UI state
+            const onSerialize = nodeType.prototype.onSerialize;
+            nodeType.prototype.onSerialize = function (o) {
+                const result = onSerialize?.apply(this, arguments);
+
+                // Save current widget state for persistence
+                o.widgets_values = o.widgets_values || [];
+                o.ui_state = {
+                    media_source:
+                        this.mediaSourceWidget?.value || "Upload Media",
+                    media_type: this.mediaTypeWidget?.value || "image",
+                };
+
+                console.log("[SERIALIZE] Saving UI state:", o.ui_state);
+                return result;
+            };
+
+            // Add onConfigure method to restore UI state
+            const onConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = function (o) {
+                const result = onConfigure?.apply(this, arguments);
+
+                // Restore UI state after widgets are created
+                if (o.ui_state) {
+                    console.log("[CONFIGURE] Restoring UI state:", o.ui_state);
+
+                    // Set widget values if they exist
+                    if (this.mediaSourceWidget && o.ui_state.media_source) {
+                        this.mediaSourceWidget.value = o.ui_state.media_source;
+                    }
+                    if (this.mediaTypeWidget && o.ui_state.media_type) {
+                        this.mediaTypeWidget.value = o.ui_state.media_type;
+                    }
+
+                    // Update UI to match restored state
+                    setTimeout(() => {
+                        this.updateMediaWidgets();
+                        console.log(
+                            "[CONFIGURE] UI state restored and widgets updated"
+                        );
+                    }, 0);
+                } else {
+                    console.log(
+                        "[CONFIGURE] No UI state found, using defaults"
+                    );
+                    // Ensure initial state is applied even without saved state
+                    setTimeout(() => {
+                        this.updateMediaWidgets();
+                    }, 0);
+                }
+
+                return result;
+            };
+
             // Add onExecuted method to update the final_string widget
             const onExecutedMedia = nodeType.prototype.onExecuted;
             nodeType.prototype.onExecuted = function (message) {
@@ -1170,6 +1224,21 @@ app.registerExtension({
                 // This is just a placeholder method
                 console.log("Video preview cleared for media node");
             };
+        }
+    },
+
+    // Hook to handle workflow loading
+    loadedGraphNode(node, app) {
+        if (node.comfyClass === "GeminiUtilMediaDescribe") {
+            // Ensure UI state is applied when workflow is loaded
+            if (node.updateMediaWidgets) {
+                setTimeout(() => {
+                    node.updateMediaWidgets();
+                    console.log(
+                        "[LOADED] Applied UI state for loaded workflow node"
+                    );
+                }, 100); // Small delay to ensure all widgets are properly initialized
+            }
         }
     },
 });
