@@ -4,12 +4,27 @@
 
 ## Project Overview
 
-SK Custom Nodes is a ComfyUI extension that provides Python custom nodes and JavaScript widgets. The project includes:
+SK Custom Nodes is a ComfyUI extension that consists of two essential components that work together:
 
--   Python custom nodes for Gemini AI video analysis
--   JavaScript widgets for enhanced ComfyUI interaction
+### Backend (Python Custom Nodes)
+
+-   Python custom nodes in `utils/*.py` for Gemini AI video analysis and processing
+-   Core business logic and AI integration
+-   Requires ComfyUI server restart when modified
+
+### Web Extension (JavaScript Widgets)
+
+-   Plain JavaScript widgets in `./web/js/` for enhanced ComfyUI interaction
+-   UI components and client-side functionality
+-   Requires browser cache refresh when modified
+
+### Additional Components
+
 -   ~~React/TypeScript UI extension with internationalization~~ **DISABLED FOR NOW**
 -   GitHub Actions for automated building and publishing
+-   Playwright tests in `./web/tests/` for testing against hosted ComfyUI server
+
+**IMPORTANT**: Both backend and web extension components are required for the custom node to function properly. Changes to backend Python files require restarting the ComfyUI server, while changes to web JavaScript files require refreshing the browser cache.
 
 **Note: The React UI component (`ui-react_backup/`) is currently disabled and not in active development.**
 
@@ -81,7 +96,7 @@ python3 -c "from utils.nodes import NODE_CLASS_MAPPINGS; print('Available nodes:
 # npm run typecheck
 ```
 
-### Python Development
+### Backend (Python) Development
 
 ```bash
 # Import and test Python nodes
@@ -94,9 +109,24 @@ ruff check .
 ruff check --fix .
 ```
 
+### Web Extension (JavaScript) Development
+
+```bash
+# JavaScript widgets are located in ./web/js/
+# No build step required - plain JavaScript files
+
+# Verify web extension files exist
+ls -la web/js/gemini_widgets.js
+ls -la web/css/gemini_widgets.css
+
+# After making changes to JavaScript widgets:
+# 1. No compilation needed (plain JS)
+# 2. Browser cache refresh required for changes to take effect
+```
+
 ## Testing
 
-### Python Testing
+### Backend (Python) Testing
 
 ```bash
 # Run pytest (currently no tests exist)
@@ -104,6 +134,21 @@ pytest  # NEVER CANCEL: Takes < 30 seconds. Set timeout to 60+ seconds.
 # Expected: "no tests ran" - this is normal, no tests exist yet
 
 # When adding tests, create them in a tests/ directory
+```
+
+### Web Extension Testing
+
+```bash
+# Playwright tests for testing against hosted ComfyUI server
+cd web/tests/
+
+# Install Playwright dependencies (if not already installed)
+npm install
+
+# Run Playwright tests against hosted ComfyUI server
+npm test
+
+# Note: Tests require a running ComfyUI server with the custom node installed
 ```
 
 ### React UI Testing _(DISABLED)_
@@ -315,8 +360,9 @@ Set appropriate timeouts: 60+ seconds for npm install, 300+ seconds for Python M
 
 ## Development Tips
 
--   Always run `npm run build` in `ui-react_backup/ui` after React changes
--   Python code changes take effect immediately (no build step required)
--   Use `npm run watch` during active React development for auto-rebuilding
+-   **Backend changes**: Restart ComfyUI server after modifying Python files in `utils/`
+-   **Web extension changes**: Refresh browser cache after modifying JavaScript files in `web/js/`
+-   JavaScript widgets require no build step (plain JS files)
+-   Use Playwright tests in `web/tests/` to validate functionality against hosted ComfyUI server
 -   Focus on functional testing since automated tests have configuration issues
 -   FFmpeg must be available in PATH for video processing features to work
