@@ -843,14 +843,14 @@ class GeminiMediaDescribe:
             if media_source == "Randomize Media from Path":
                 if not media_path or not media_path.strip():
                     raise ValueError("Media path is required when using 'Randomize Media from Path'")
-                
+
                 # Validate path exists
                 if not os.path.exists(media_path):
                     # Try to provide helpful debugging info
                     current_dir = os.getcwd()
                     parent_dir = os.path.dirname(media_path) if media_path else "N/A"
                     parent_exists = os.path.exists(parent_dir) if parent_dir else False
-                    
+
                     debug_info = f"""
 Path Debug Info:
 • Requested path: {media_path}
@@ -858,45 +858,45 @@ Path Debug Info:
 • Parent directory: {parent_dir}
 • Parent exists: {parent_exists}
 • Is absolute path: {os.path.isabs(media_path) if media_path else False}"""
-                    
+
                     raise ValueError(f"Media path does not exist: {media_path}{debug_info}")
-                
+
                 # Define supported file extensions
                 if media_type == "image":
                     extensions = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.tiff", "*.webp"]
                 else:  # video
                     extensions = ["*.mp4", "*.avi", "*.mov", "*.mkv", "*.wmv", "*.flv", "*.webm"]
-                
+
                 # Find all matching files
                 all_files = []
                 for ext in extensions:
                     all_files.extend(glob.glob(os.path.join(media_path, ext)))
                     all_files.extend(glob.glob(os.path.join(media_path, ext.upper())))
-                
+
                 if not all_files:
                     # Enhanced debugging for file search
                     try:
                         dir_contents = os.listdir(media_path)
                         total_files = len(dir_contents)
                         sample_files = dir_contents[:5]  # Show first 5 files
-                        
+
                         debug_info = f"""
 Directory scan results:
 • Path: {media_path}
 • Total items in directory: {total_files}
 • Sample files: {sample_files}
 • Looking for {media_type} files with extensions: {extensions}"""
-                        
+
                         raise ValueError(f"No {media_type} files found in path: {media_path}{debug_info}")
                     except PermissionError:
                         raise ValueError(f"Permission denied accessing path: {media_path}")
                     except Exception as scan_error:
                         raise ValueError(f"Error scanning path {media_path}: {str(scan_error)}")
-                
+
                 # Randomly select a file
                 selected_file = random.choice(all_files)
                 selected_media_info = f"Random {media_type}: {os.path.basename(selected_file)}"
-                
+
                 # For now, just return info about the selected file
                 description = f"Selected random {media_type} file: {os.path.basename(selected_file)}"
             else:
