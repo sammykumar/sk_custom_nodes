@@ -683,7 +683,7 @@ Directory scan results:
                 # When seed changes, a different file may be selected, forcing re-execution
                 random.seed(seed)
                 selected_media_path = random.choice(all_files)
-                
+
                 # Reset random state to avoid affecting other operations
                 random.seed(None)
 
