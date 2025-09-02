@@ -113,5 +113,20 @@ node.zip
 .vscode/
 .claude/
 
+# Dev container and development files
+.devcontainer/.env
+temp/
+input/
+output/
+models/
+.ruff_cache/
+
 # Gemini description cache
 cache/
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~

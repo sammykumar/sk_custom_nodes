@@ -1,34 +1,49 @@
 # SK Custom Nodes
 
-![react-example-demo](https://github.com/sammykumar/sk_custom_nodes/blob/assets-branch/docs/demo.gif)
-
-![demo pic](https://github.com/sammykumar/sk_custom_nodes/blob/assets-branch/react-example-demo.png)
-
-A minimal template for creating React/TypeScript frontend extensions for ComfyUI, with complete boilerplate setup.
-
-📚 **[ComfyUI JavaScript Developer Documentation](https://docs.comfy.org/custom-nodes/js/javascript_overview)** - Learn how to use ComfyUI's powerful extension APIs.
+A collection of custom nodes for ComfyUI featuring Gemini AI integration for video and image analysis, with a complete development environment using GPU-accelerated containers.
 
 ## Features
 
-- **React & TypeScript Integration**: Ready-to-use setup for creating modern UI components within ComfyUI
-- **Internationalization Framework**: Built-in i18n support with English and Chinese examples
-- **ComfyUI API Integration**: Properly typed access to ComfyUI's internal API
-- **Full TypeScript Support**: Type-safe code using ComfyUI's official type definitions
-- **Auto-Reload Development**: Watch mode for seamless development experience
+- **🤖 Gemini AI Integration**: Video, image, and media analysis using Google's Gemini AI
+- **🎮 JavaScript Widgets**: Enhanced ComfyUI interfaces with custom video controls
+- **🐳 Dev Container Support**: GPU-enabled development environment with mmartial/ComfyUI-Nvidia-Docker
+- **🧪 Full Testing Suite**: Python and JavaScript testing with CI/CD integration
+- **⚡ Hot Reload Development**: Instant feedback for both backend and frontend changes
 
-## Installation
+## Quick Start with Dev Container (Recommended)
 
-### From ComfyUI Registry (Recommended)
+The fastest way to get started is using the provided dev container with GPU support:
 
-The easiest way to install this extension is through the ComfyUI Manager:
+### Prerequisites
+- Docker with NVIDIA Container Toolkit
+- VS Code with Dev Containers extension
+- NVIDIA GPU with drivers installed
 
-1. Open ComfyUI and go to the Manager
-2. Search for "React Extension Template"
-3. Click Install
+### Setup
+```bash
+# Clone the repository
+git clone https://github.com/sammykumar/sk_custom_nodes.git
+cd sk_custom_nodes
 
-### Manual Installation
+# Open in VS Code
+code .
 
-If you want to install directly from GitHub for development purposes:
+# Use "Reopen in Container" from VS Code command palette
+# OR run directly with Docker:
+docker run --gpus all -v $(pwd):/workspaces/repo -p 8188:8188 \
+  mmartial/comfyui-nvidia-docker:ubuntu24_cuda12.8-latest
+
+# Inside the container, start ComfyUI:
+./.devcontainer/run-comfy.sh
+```
+
+ComfyUI will be available at **http://localhost:8188** with your custom nodes automatically loaded.
+
+## Manual Installation
+
+### For ComfyUI Users
+
+If you want to use the nodes in an existing ComfyUI installation:
 
 ```bash
 # Go to your ComfyUI custom_nodes directory
@@ -37,15 +52,99 @@ cd ComfyUI/custom_nodes
 # Clone the repository
 git clone https://github.com/sammykumar/sk_custom_nodes.git
 
-# Build the React application
-cd sk_custom_nodes/ui
-npm install
-npm run build
+# Install dependencies
+cd sk_custom_nodes
+pip install -e .
 
 # Restart ComfyUI
 ```
 
-⚠️ **Important**: When installing manually from GitHub, you **must** run `npm run build` in the `ui/` directory before the extension will work. The extension requires the compiled React code in the `dist/` folder to function properly in ComfyUI.
+### For Development
+
+If you're contributing to the project or want to modify the nodes:
+
+```bash
+# Clone the repository
+git clone https://github.com/sammykumar/sk_custom_nodes.git
+cd sk_custom_nodes
+
+# Install Python dependencies
+pip install -e .
+pip install ruff black mypy pytest opencv-python pillow
+
+# Install JavaScript tooling
+cd web
+npm install
+
+# Install pre-commit hooks
+pre-commit install
+```
+
+**System Requirements:**
+- Python 3.10+
+- Node.js 20+ (for development)
+- FFmpeg (for video processing)
+- NVIDIA GPU (optional, for accelerated inference)
+
+## Available Nodes
+
+### Backend Nodes (Python)
+- **GeminiUtilVideoDescribe**: Analyze videos using Gemini AI
+- **GeminiUtilImageDescribe**: Analyze images using Gemini AI  
+- **GeminiUtilMediaDescribe**: Multi-media analysis functionality
+
+### Web Extension (JavaScript)
+- **Video Controls Widget**: Enhanced video timeline controls with trimming
+- **Custom Styling**: Themed UI components that integrate with ComfyUI
+
+## Development Workflow
+
+### Dev Container (Recommended)
+```bash
+# Start the development environment
+./.devcontainer/run-comfy.sh
+
+# ComfyUI available at http://localhost:8188
+# Changes are automatically reloaded
+```
+
+### Local Development
+```bash
+# Python backend development
+ruff check .                    # Lint Python code
+pytest                         # Run Python tests
+python -c "from utils.nodes import NODE_CLASS_MAPPINGS; print(list(NODE_CLASS_MAPPINGS.keys()))"
+
+# JavaScript web extension development  
+cd web
+npm run lint                   # Lint JavaScript
+npm run format                 # Format code
+cd tests && npm test           # Run Playwright tests (requires running ComfyUI)
+```
+
+**Important Notes:**
+- Python changes require ComfyUI server restart
+- JavaScript changes require browser cache refresh only
+- JavaScript widgets are plain JS files (no build step required)
+
+## Testing
+
+### Automated Testing
+The project includes comprehensive CI/CD testing:
+- **Python**: Linting (ruff), formatting (black), type checking (mypy), unit tests (pytest)
+- **JavaScript**: Linting (eslint), formatting (prettier), integration tests (playwright)
+- **Integration**: ComfyUI node loading, FFmpeg availability, system compatibility
+
+### Manual Testing
+```bash
+# Test Python nodes
+python -c "from utils.nodes import NODE_CLASS_MAPPINGS; print('Nodes:', list(NODE_CLASS_MAPPINGS.keys()))"
+
+# Test JavaScript widgets
+# 1. Start ComfyUI with the custom node
+# 2. Add a Gemini node to your workflow
+# 3. Test video controls and interface elements
+```
 
 ## Usage
 

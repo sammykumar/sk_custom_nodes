@@ -1,0 +1,48 @@
+{
+	"name": "SK Custom Nodes Dev Environment",
+	"image": "mmartial/comfyui-nvidia-docker:ubuntu24_cuda12.8-latest",
+	"runArgs": [
+		"--gpus",
+		"all"
+	],
+	"workspaceFolder": "/workspaces/repo",
+	"workspaceMount": "source=${localWorkspaceFolder},target=/workspaces/repo,type=bind,consistency=cached",
+	"postCreateCommand": ".devcontainer/postCreate.sh",
+	"forwardPorts": [8188],
+	"portsAttributes": {
+		"8188": {
+			"label": "ComfyUI Server",
+			"onAutoForward": "notify"
+		}
+	},
+	"customizations": {
+		"vscode": {
+			"extensions": [
+				"ms-python.python",
+				"ms-python.black-formatter",
+				"charliermarsh.ruff",
+				"ms-python.mypy-type-checker",
+				"esbenp.prettier-vscode",
+				"ms-vscode.vscode-json",
+				"redhat.vscode-yaml"
+			],
+			"settings": {
+				"python.defaultInterpreterPath": "/opt/conda/bin/python",
+				"python.linting.enabled": true,
+				"python.linting.ruffEnabled": true,
+				"python.formatting.provider": "black",
+				"editor.formatOnSave": true,
+				"editor.codeActionsOnSave": {
+					"source.organizeImports": "explicit"
+				}
+			}
+		}
+	},
+	"features": {
+		"ghcr.io/devcontainers/features/node:1": {
+			"version": "20"
+		},
+		"ghcr.io/devcontainers/features/git:1": {}
+	},
+	"remoteUser": "user"
+}

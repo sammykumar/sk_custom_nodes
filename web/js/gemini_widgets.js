@@ -9,37 +9,12 @@ app.registerExtension({
 
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
         if (nodeData.name === "GeminiUtilVideoDescribe") {
-            console.log(
-                "Registering GeminiUtilVideoDescribe node with inline video preview"
-            );
+            console.log("Registering GeminiUtilVideoDescribe node with inline video preview");
 
             // Add custom widget after the node is created
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const result = onNodeCreated?.apply(this, arguments);
-
-                // Add a read-only final_string display widget
-                this.finalStringWidget = this.addWidget(
-                    "text",
-                    "final_string",
-                    "Populated Prompt (Will be generated automatically)",
-                    () => {},
-                    {
-                        readonly: true,
-                        multiline: true,
-                        inputStyle: {
-                            backgroundColor: "#1a1a1a",
-                            border: "1px solid #444",
-                            color: "#ccc",
-                            padding: "8px",
-                            borderRadius: "4px",
-                            minHeight: "60px",
-                            fontFamily: "monospace",
-                            fontSize: "12px",
-                        },
-                    }
-                );
-                this.finalStringWidget.serialize = false;
 
                 // Add a video upload button widget
                 const uploadButton = this.addWidget(
@@ -76,22 +51,9 @@ app.registerExtension({
             // Add onExecuted method to update the final_string widget
             const onExecuted = nodeType.prototype.onExecuted;
             nodeType.prototype.onExecuted = function (message) {
-                const result = onExecuted?.apply(this, arguments);
-
-                // Update final_string widget with the actual output
-                if (message && message.output && this.finalStringWidget) {
-                    // final_string is the 5th output (index 4) for GeminiUtilVideoDescribe
-                    const finalStringOutput = message.output[4];
-                    if (finalStringOutput && finalStringOutput.length > 0) {
-                        this.finalStringWidget.value = finalStringOutput[0];
-                        console.log(
-                            "Updated final_string widget with:",
-                            finalStringOutput[0]
-                        );
-                    }
+                if (onExecuted) {
+                    onExecuted.apply(this, arguments);
                 }
-
-                return result;
             };
 
             // Method to clear previous video preview
@@ -111,13 +73,8 @@ app.registerExtension({
                 // Remove existing video widget if any
                 if (this.videoWidget) {
                     // Remove DOM element if it exists
-                    if (
-                        this.videoWidget.parentEl &&
-                        this.videoWidget.parentEl.parentNode
-                    ) {
-                        this.videoWidget.parentEl.parentNode.removeChild(
-                            this.videoWidget.parentEl
-                        );
+                    if (this.videoWidget.parentEl && this.videoWidget.parentEl.parentNode) {
+                        this.videoWidget.parentEl.parentNode.removeChild(this.videoWidget.parentEl);
                     }
 
                     const widgetIndex = this.widgets.indexOf(this.videoWidget);
@@ -143,9 +100,7 @@ app.registerExtension({
                 this.clearVideoPreview();
 
                 // Create video preview HTML
-                const videoUrl = `/view?filename=${
-                    this.uploadedVideoFile
-                }&subfolder=${
+                const videoUrl = `/view?filename=${this.uploadedVideoFile}&subfolder=${
                     this.uploadedVideoSubfolder
                 }&type=input&t=${Date.now()}`;
 
@@ -154,21 +109,16 @@ app.registerExtension({
                 const previewNode = this;
 
                 // Create a DOM widget using ComfyUI's built-in method (same as VHS)
-                this.videoWidget = this.addDOMWidget(
-                    "videopreview",
-                    "preview",
-                    element,
-                    {
-                        serialize: false,
-                        hideOnZoom: false,
-                        getValue() {
-                            return element.value;
-                        },
-                        setValue(v) {
-                            element.value = v;
-                        },
-                    }
-                );
+                this.videoWidget = this.addDOMWidget("videopreview", "preview", element, {
+                    serialize: false,
+                    hideOnZoom: false,
+                    getValue() {
+                        return element.value;
+                    },
+                    setValue(v) {
+                        element.value = v;
+                    },
+                });
 
                 // Add drag support
                 this.allowDragFromWidget(this.videoWidget);
@@ -293,16 +243,11 @@ app.registerExtension({
             // Setup video controls
             nodeType.prototype.setupVideoControls = function () {
                 this.videoElement = document.getElementById(`video-${this.id}`);
-                this.timeDisplay = document.getElementById(
-                    `time-display-${this.id}`
-                );
+                this.timeDisplay = document.getElementById(`time-display-${this.id}`);
 
                 // Check for missing elements
                 if (!this.videoElement || !this.timeDisplay) {
-                    console.error(
-                        "Could not find video elements for node:",
-                        this.id
-                    );
+                    console.error("Could not find video elements for node:", this.id);
                     return;
                 }
 
@@ -315,9 +260,7 @@ app.registerExtension({
                     // Don't update widget aspect ratio to prevent resizing
                     // The video will maintain its aspect ratio using CSS object-fit: contain
 
-                    this.timeDisplay.textContent = `Duration: ${this.duration.toFixed(
-                        1
-                    )}s`;
+                    this.timeDisplay.textContent = `Duration: ${this.duration.toFixed(1)}s`;
                     console.log(`Video loaded: ${this.duration}s duration`);
                 });
 
@@ -340,20 +283,14 @@ app.registerExtension({
                     // Update time display during playback
                     const current = this.videoElement.currentTime;
                     const total = this.duration || this.videoElement.duration;
-                    this.timeDisplay.textContent = `${current.toFixed(
-                        1
-                    )}s / ${total.toFixed(1)}s`;
+                    this.timeDisplay.textContent = `${current.toFixed(1)}s / ${total.toFixed(1)}s`;
                 });
             };
 
             // Update node parameters
             nodeType.prototype.updateNodeParams = function () {
-                const startTimeWidget = this.widgets.find(
-                    (w) => w.name === "start_time"
-                );
-                const maxDurationWidget = this.widgets.find(
-                    (w) => w.name === "max_duration"
-                );
+                const startTimeWidget = this.widgets.find((w) => w.name === "start_time");
+                const maxDurationWidget = this.widgets.find((w) => w.name === "max_duration");
 
                 if (startTimeWidget) {
                     startTimeWidget.value = this.startTime;
@@ -419,9 +356,7 @@ app.registerExtension({
                         });
 
                         if (!uploadResponse.ok) {
-                            throw new Error(
-                                `Upload failed: ${uploadResponse.statusText}`
-                            );
+                            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
                         }
 
                         const uploadResult = await uploadResponse.json();
@@ -435,8 +370,7 @@ app.registerExtension({
 
                         // Store video info for processing
                         this.uploadedVideoFile = uploadResult.name;
-                        this.uploadedVideoSubfolder =
-                            uploadResult.subfolder || "gemini_videos";
+                        this.uploadedVideoSubfolder = uploadResult.subfolder || "gemini_videos";
 
                         // Add a hidden widget to store the video file path for the Python node
                         if (!this.videoFileWidget) {
@@ -494,37 +428,12 @@ app.registerExtension({
 
         // Handle GeminiUtilImageDescribe node
         else if (nodeData.name === "GeminiUtilImageDescribe") {
-            console.log(
-                "Registering GeminiUtilImageDescribe node with final_string display"
-            );
+            console.log("Registering GeminiUtilImageDescribe node with final_string display");
 
             // Add custom widget after the node is created
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const result = onNodeCreated?.apply(this, arguments);
-
-                // Add a read-only final_string display widget
-                this.finalStringWidget = this.addWidget(
-                    "text",
-                    "final_string",
-                    "Populated Prompt (Will be generated automatically)",
-                    () => {},
-                    {
-                        readonly: true,
-                        multiline: true,
-                        inputStyle: {
-                            backgroundColor: "#1a1a1a",
-                            border: "1px solid #444",
-                            color: "#ccc",
-                            padding: "8px",
-                            borderRadius: "4px",
-                            minHeight: "60px",
-                            fontFamily: "monospace",
-                            fontSize: "12px",
-                        },
-                    }
-                );
-                this.finalStringWidget.serialize = false;
 
                 return result;
             };
@@ -533,39 +442,47 @@ app.registerExtension({
             const onExecutedImage = nodeType.prototype.onExecuted;
             nodeType.prototype.onExecuted = function (message) {
                 const result = onExecutedImage?.apply(this, arguments);
-
-                // Update final_string widget with the actual output
-                if (message && message.output && this.finalStringWidget) {
-                    // final_string is the 3rd output (index 2) for GeminiUtilImageDescribe
-                    const finalStringOutput = message.output[2];
-                    if (finalStringOutput && finalStringOutput.length > 0) {
-                        this.finalStringWidget.value = finalStringOutput[0];
-                        console.log(
-                            "Updated final_string widget with:",
-                            finalStringOutput[0]
-                        );
-                    }
-                }
-
                 return result;
             };
-        } else if (nodeType.comfyClass == "GeminiUtilMediaDescribe") {
-            console.log("Registering GeminiUtilMediaDescribe");
+        }
+        // Handle GeminiUtilMediaDescribe node
+        else if (nodeData.name === "GeminiUtilMediaDescribe") {
+            console.log("Registering GeminiUtilMediaDescribe node with dynamic media widgets");
 
             // Add custom widget after the node is created
             const onNodeCreated = nodeType.prototype.onNodeCreated;
             nodeType.prototype.onNodeCreated = function () {
                 const result = onNodeCreated?.apply(this, arguments);
 
+                // Hide the optional input widgets that shouldn't be directly visible
+                // These will be managed by our dynamic widget system
+                this.hideOptionalInputWidgets = function () {
+                    const widgetsToHide = [
+                        "media_path",
+                        "uploaded_image_file",
+                        "uploaded_video_file",
+                        "seed",
+                    ];
+
+                    for (const widgetName of widgetsToHide) {
+                        const widget = this.widgets.find((w) => w.name === widgetName);
+                        if (widget) {
+                            // Hide the widget by setting its type to 'hidden'
+                            widget.type = "hidden";
+                            widget.computeSize = () => [0, -4]; // Make it take no space
+                            console.log(`[WIDGET] Hidden optional input widget: ${widgetName}`);
+                        }
+                    }
+                };
+
+                // Hide the optional input widgets immediately
+                this.hideOptionalInputWidgets();
+
                 // Find the media_source widget
-                this.mediaSourceWidget = this.widgets.find(
-                    (w) => w.name === "media_source"
-                );
+                this.mediaSourceWidget = this.widgets.find((w) => w.name === "media_source");
 
                 // Find the media_type widget
-                this.mediaTypeWidget = this.widgets.find(
-                    (w) => w.name === "media_type"
-                );
+                this.mediaTypeWidget = this.widgets.find((w) => w.name === "media_type");
 
                 // Method to clear all media state (images, videos, previews, file data)
                 this.clearAllMediaState = function () {
@@ -597,6 +514,21 @@ app.registerExtension({
                     if (this.imageFileWidget) {
                         this.imageFileWidget.value = "";
                     }
+
+                    // Also clear the original input widgets
+                    const originalUploadedImageWidget = this.widgets.find(
+                        (w) => w.name === "uploaded_image_file"
+                    );
+                    const originalUploadedVideoWidget = this.widgets.find(
+                        (w) => w.name === "uploaded_video_file"
+                    );
+
+                    if (originalUploadedImageWidget) {
+                        originalUploadedImageWidget.value = "";
+                    }
+                    if (originalUploadedVideoWidget) {
+                        originalUploadedVideoWidget.value = "";
+                    }
                 };
 
                 // Function to safely remove a widget
@@ -611,16 +543,24 @@ app.registerExtension({
 
                 // Function to update widgets based on media_source and media_type
                 this.updateMediaWidgets = function () {
-                    const mediaSource =
-                        this.mediaSourceWidget?.value || "Upload Media";
+                    const mediaSource = this.mediaSourceWidget?.value || "Upload Media";
                     const mediaType = this.mediaTypeWidget?.value || "image";
 
                     console.log(
                         `[STATE] Updating widgets: mediaSource=${mediaSource}, mediaType=${mediaType}`
                     );
 
-                    // Store existing values before clearing widgets
-                    const existingMediaPath = this.mediaPathWidget?.value || "";
+                    // Find the original input widgets that we want to control
+                    const originalMediaPathWidget = this.widgets.find(
+                        (w) => w.name === "media_path"
+                    );
+                    const originalUploadedImageWidget = this.widgets.find(
+                        (w) => w.name === "uploaded_image_file"
+                    );
+                    const originalUploadedVideoWidget = this.widgets.find(
+                        (w) => w.name === "uploaded_video_file"
+                    );
+                    const originalSeedWidget = this.widgets.find((w) => w.name === "seed");
 
                     // Clear all previous media state when switching configurations
                     this.clearAllMediaState();
@@ -631,37 +571,77 @@ app.registerExtension({
                     this.removeWidgetSafely(this.imageInfoWidget);
                     this.removeWidgetSafely(this.videoUploadWidget);
                     this.removeWidgetSafely(this.videoInfoWidget);
-                    this.removeWidgetSafely(this.mediaPathWidget);
+                    // Don't remove the original media_path widget, just manage its visibility
+                    // this.removeWidgetSafely(this.mediaPathWidget);
 
                     // Reset widget references
                     this.imageUploadWidget = null;
                     this.imageInfoWidget = null;
                     this.videoUploadWidget = null;
                     this.videoInfoWidget = null;
-                    this.mediaPathWidget = null;
+                    // this.mediaPathWidget = null;
 
-                    // First handle media_source changes
+                    // Manage visibility of original input widgets
                     if (mediaSource === "Randomize Media from Path") {
-                        console.log("[STATE] Creating media path widget");
+                        console.log("[STATE] Showing media path widget");
 
-                        // Show media path input widget
-                        this.mediaPathWidget = this.addWidget(
-                            "text",
-                            "media_path",
-                            existingMediaPath, // Preserve existing value
-                            () => {},
-                            {
-                                placeholder:
-                                    "Enter directory path for random selection...",
-                            }
-                        );
-                        this.mediaPathWidget.serialize = true;
+                        // Show the original media_path widget
+                        if (originalMediaPathWidget) {
+                            originalMediaPathWidget.type = "text";
+                            originalMediaPathWidget.computeSize =
+                                originalMediaPathWidget.constructor.prototype.computeSize;
+                            this.mediaPathWidget = originalMediaPathWidget; // Reference the original
+                        }
+
+                        // Show the seed widget for randomization
+                        if (originalSeedWidget) {
+                            originalSeedWidget.type = "number";
+                            originalSeedWidget.computeSize =
+                                originalSeedWidget.constructor.prototype.computeSize;
+                            console.log("[STATE] Showing seed widget for randomization");
+                        }
+
+                        // Note: Seed randomization is handled by ComfyUI's built-in controls
+
+                        // Hide upload file widgets
+                        if (originalUploadedImageWidget) {
+                            originalUploadedImageWidget.type = "hidden";
+                            originalUploadedImageWidget.computeSize = () => [0, -4];
+                        }
+                        if (originalUploadedVideoWidget) {
+                            originalUploadedVideoWidget.type = "hidden";
+                            originalUploadedVideoWidget.computeSize = () => [0, -4];
+                        }
                     } else {
                         // Upload Media mode - Show appropriate upload widgets based on media_type
+                        console.log("[STATE] Upload Media mode - hiding media_path widget");
+
+                        // Hide the original media_path widget
+                        if (originalMediaPathWidget) {
+                            originalMediaPathWidget.type = "hidden";
+                            originalMediaPathWidget.computeSize = () => [0, -4];
+                        }
+
+                        // Hide the seed widget when not randomizing
+                        if (originalSeedWidget) {
+                            originalSeedWidget.type = "hidden";
+                            originalSeedWidget.computeSize = () => [0, -4];
+                            console.log("[STATE] Hiding seed widget for upload mode");
+                        }
+
                         if (mediaType === "image") {
-                            console.log(
-                                "[STATE] Creating image upload widgets"
-                            );
+                            console.log("[STATE] Creating image upload widgets");
+
+                            // Hide the video upload widget, show image upload widget reference
+                            if (originalUploadedVideoWidget) {
+                                originalUploadedVideoWidget.type = "hidden";
+                                originalUploadedVideoWidget.computeSize = () => [0, -4];
+                            }
+                            if (originalUploadedImageWidget) {
+                                originalUploadedImageWidget.type = "hidden"; // Keep hidden, we'll use a custom widget
+                                originalUploadedImageWidget.computeSize = () => [0, -4];
+                            }
+
                             // Add image upload widgets
                             this.imageUploadWidget = this.addWidget(
                                 "button",
@@ -683,9 +663,18 @@ app.registerExtension({
                             );
                             this.imageInfoWidget.serialize = false;
                         } else if (mediaType === "video") {
-                            console.log(
-                                "[STATE] Creating video upload widgets"
-                            );
+                            console.log("[STATE] Creating video upload widgets");
+
+                            // Hide the image upload widget, show video upload widget reference
+                            if (originalUploadedImageWidget) {
+                                originalUploadedImageWidget.type = "hidden";
+                                originalUploadedImageWidget.computeSize = () => [0, -4];
+                            }
+                            if (originalUploadedVideoWidget) {
+                                originalUploadedVideoWidget.type = "hidden"; // Keep hidden, we'll use a custom widget
+                                originalUploadedVideoWidget.computeSize = () => [0, -4];
+                            }
+
                             // Add video upload widgets
                             this.videoUploadWidget = this.addWidget(
                                 "button",
@@ -724,14 +713,10 @@ app.registerExtension({
 
                 // Hook into media_source widget changes
                 if (this.mediaSourceWidget) {
-                    const originalSourceCallback =
-                        this.mediaSourceWidget.callback;
+                    const originalSourceCallback = this.mediaSourceWidget.callback;
                     this.mediaSourceWidget.callback = (value) => {
                         if (originalSourceCallback)
-                            originalSourceCallback.call(
-                                this.mediaSourceWidget,
-                                value
-                            );
+                            originalSourceCallback.call(this.mediaSourceWidget, value);
                         this.updateMediaWidgets();
                     };
                 }
@@ -741,14 +726,67 @@ app.registerExtension({
                     const originalTypeCallback = this.mediaTypeWidget.callback;
                     this.mediaTypeWidget.callback = (value) => {
                         if (originalTypeCallback)
-                            originalTypeCallback.call(
-                                this.mediaTypeWidget,
-                                value
-                            );
+                            originalTypeCallback.call(this.mediaTypeWidget, value);
                         this.updateMediaWidgets();
                     };
                 }
 
+                return result;
+            };
+
+            // Add onSerialize method to save UI state
+            const onSerialize = nodeType.prototype.onSerialize;
+            nodeType.prototype.onSerialize = function (o) {
+                const result = onSerialize?.apply(this, arguments);
+
+                // Save current widget state for persistence
+                o.widgets_values = o.widgets_values || [];
+                o.ui_state = {
+                    media_source: this.mediaSourceWidget?.value || "Upload Media",
+                    media_type: this.mediaTypeWidget?.value || "image",
+                };
+
+                console.log("[SERIALIZE] Saving UI state:", o.ui_state);
+                return result;
+            };
+
+            // Add onConfigure method to restore UI state
+            const onConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = function (o) {
+                const result = onConfigure?.apply(this, arguments);
+
+                // Restore UI state after widgets are created
+                if (o.ui_state) {
+                    console.log("[CONFIGURE] Restoring UI state:", o.ui_state);
+
+                    // Set widget values if they exist
+                    if (this.mediaSourceWidget && o.ui_state.media_source) {
+                        this.mediaSourceWidget.value = o.ui_state.media_source;
+                    }
+                    if (this.mediaTypeWidget && o.ui_state.media_type) {
+                        this.mediaTypeWidget.value = o.ui_state.media_type;
+                    }
+
+                    // Update UI to match restored state
+                    setTimeout(() => {
+                        this.updateMediaWidgets();
+                        console.log("[CONFIGURE] UI state restored and widgets updated");
+                    }, 0);
+                } else {
+                    console.log("[CONFIGURE] No UI state found, using defaults");
+                    // Ensure initial state is applied even without saved state
+                    setTimeout(() => {
+                        this.updateMediaWidgets();
+                    }, 0);
+                }
+
+                return result;
+            };
+
+            // Add onExecuted method to update the final_string widget
+            const onExecutedMedia = nodeType.prototype.onExecuted;
+            nodeType.prototype.onExecuted = function (message) {
+                const result = onExecutedMedia?.apply(this, arguments);
                 return result;
             };
 
@@ -823,9 +861,7 @@ app.registerExtension({
                         });
 
                         if (!uploadResponse.ok) {
-                            throw new Error(
-                                `Upload failed: ${uploadResponse.statusText}`
-                            );
+                            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
                         }
 
                         const uploadResult = await uploadResponse.json();
@@ -839,24 +875,32 @@ app.registerExtension({
 
                         // Store image info for processing
                         this.uploadedImageFile = uploadResult.name;
-                        this.uploadedImageSubfolder =
-                            uploadResult.subfolder || "gemini_images";
+                        this.uploadedImageSubfolder = uploadResult.subfolder || "gemini_images";
 
-                        // Add a hidden widget to store the image file path for the Python node
-                        if (!this.imageFileWidget) {
-                            this.imageFileWidget = this.addWidget(
-                                "text",
-                                "uploaded_image_file",
-                                "",
-                                () => {},
-                                {}
+                        // Use the original uploaded_image_file widget to store the file path
+                        const originalUploadedImageWidget = this.widgets.find(
+                            (w) => w.name === "uploaded_image_file"
+                        );
+                        if (originalUploadedImageWidget) {
+                            originalUploadedImageWidget.value = `${this.uploadedImageSubfolder}/${this.uploadedImageFile}`;
+                            console.log(
+                                `[UPLOAD] Updated original uploaded_image_file widget: ${originalUploadedImageWidget.value}`
                             );
-                            this.imageFileWidget.serialize = true;
-                            this.imageFileWidget.type = "hidden";
+                        } else {
+                            // Fallback: create a hidden widget if the original doesn't exist
+                            if (!this.imageFileWidget) {
+                                this.imageFileWidget = this.addWidget(
+                                    "text",
+                                    "uploaded_image_file",
+                                    "",
+                                    () => {},
+                                    {}
+                                );
+                                this.imageFileWidget.serialize = true;
+                                this.imageFileWidget.type = "hidden";
+                            }
+                            this.imageFileWidget.value = `${this.uploadedImageSubfolder}/${this.uploadedImageFile}`;
                         }
-
-                        // Store the file path in the hidden widget
-                        this.imageFileWidget.value = `${this.uploadedImageSubfolder}/${this.uploadedImageFile}`;
 
                         // Show success notification
                         app.extensionManager?.toast?.add({
@@ -933,9 +977,7 @@ app.registerExtension({
                         });
 
                         if (!uploadResponse.ok) {
-                            throw new Error(
-                                `Upload failed: ${uploadResponse.statusText}`
-                            );
+                            throw new Error(`Upload failed: ${uploadResponse.statusText}`);
                         }
 
                         const uploadResult = await uploadResponse.json();
@@ -949,24 +991,32 @@ app.registerExtension({
 
                         // Store video info for processing
                         this.uploadedVideoFile = uploadResult.name;
-                        this.uploadedVideoSubfolder =
-                            uploadResult.subfolder || "gemini_videos";
+                        this.uploadedVideoSubfolder = uploadResult.subfolder || "gemini_videos";
 
-                        // Add a hidden widget to store the video file path for the Python node
-                        if (!this.videoFileWidget) {
-                            this.videoFileWidget = this.addWidget(
-                                "text",
-                                "uploaded_video_file",
-                                "",
-                                () => {},
-                                {}
+                        // Use the original uploaded_video_file widget to store the file path
+                        const originalUploadedVideoWidget = this.widgets.find(
+                            (w) => w.name === "uploaded_video_file"
+                        );
+                        if (originalUploadedVideoWidget) {
+                            originalUploadedVideoWidget.value = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
+                            console.log(
+                                `[UPLOAD] Updated original uploaded_video_file widget: ${originalUploadedVideoWidget.value}`
                             );
-                            this.videoFileWidget.serialize = true;
-                            this.videoFileWidget.type = "hidden";
+                        } else {
+                            // Fallback: create a hidden widget if the original doesn't exist
+                            if (!this.videoFileWidget) {
+                                this.videoFileWidget = this.addWidget(
+                                    "text",
+                                    "uploaded_video_file",
+                                    "",
+                                    () => {},
+                                    {}
+                                );
+                                this.videoFileWidget.serialize = true;
+                                this.videoFileWidget.type = "hidden";
+                            }
+                            this.videoFileWidget.value = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
                         }
-
-                        // Store the file path in the hidden widget
-                        this.videoFileWidget.value = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
 
                         // Show success notification
                         app.extensionManager?.toast?.add({
@@ -1008,6 +1058,20 @@ app.registerExtension({
                 // This is just a placeholder method
                 console.log("Video preview cleared for media node");
             };
+
+        }
+    },
+
+    // Hook to handle workflow loading
+    loadedGraphNode(node, app) {
+        if (node.comfyClass === "GeminiUtilMediaDescribe") {
+            // Ensure UI state is applied when workflow is loaded
+            if (node.updateMediaWidgets) {
+                setTimeout(() => {
+                    node.updateMediaWidgets();
+                    console.log("[LOADED] Applied UI state for loaded workflow node");
+                }, 100); // Small delay to ensure all widgets are properly initialized
+            }
         }
     },
 });
