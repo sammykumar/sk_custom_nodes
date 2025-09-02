@@ -170,7 +170,7 @@ Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," e
                 if describe_clothing:
                     clothing_prompt = """
 CLOTHING (Fourth Paragraph)
-Describe all visible clothing and accessories with absolute certainty. Be specific: identify garment type, definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes."""
+Describe all visible clothing and accessories with absolute certainty and definitiveness. Be specific: identify garment type with confidence, state definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Make decisive choices when multiple interpretations are possible - choose one specific description and state it as fact. Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes."""
                     paragraph_count = 4
                     critical_note = "CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line."
                 else:
@@ -182,10 +182,13 @@ Describe all visible clothing and accessories with absolute certainty. Be specif
                 if not describe_bokeh:
                     critical_note += " Never mention depth of field, bokeh, blur, optics, DOF, rack focus, or any depth-related visual effects."
 
-                critical_note += " Never mention prohibited attributes, even if visible. Provide definitive descriptions without uncertainty - avoid phrases like 'appears to be' or 'seems to be'."
+                critical_note += " Never mention prohibited attributes, even if visible. Be completely decisive and definitive in all descriptions - eliminate all uncertainty language including 'appears to be', 'seems to be', 'might be', 'possibly', 'likely', 'or', 'either/or'. When multiple interpretations are possible, confidently choose one and state it as absolute fact."
 
                 # Combine all parts
                 system_prompt = f"""Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
+
+DECISIVENESS REQUIREMENT: Always provide definitive, certain descriptions. When you see something that could be described multiple ways, make a confident choice and state it as fact. Never use uncertain language like "appears to be", "seems to be", "might be", "possibly", "likely", or "or". Instead of "holding a black folder or book", write "holding a black folder". Instead of "wearing what appears to be denim", write "wearing dark blue denim jeans".
+
 Before writing, silently review the provided media. Do not use meta phrases (e.g., "this picture shows").
 Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
 
@@ -216,7 +219,9 @@ Generate descriptions that adhere to the following structured layers and constra
                 else:
                     clothing_note = f"describe {traits_instruction} only (avoid clothing, age, ethnicity, tattoos, hair color, etc.)"
 
-                system_prompt = f"""You are an expert assistant generating concise, single-sentence Qwen-Image-Edit instructions; always begin with "Make this person…", include vivid, focused scene details (e.g. bedroom props, lights, furniture or gym bench, textured wall, window views) early to anchor the setting{"," if focus_instruction else ""} {focus_instruction}, {clothing_note}, include clear torso and head orientation (e.g., "back facing the camera with torso turned 45° and head looking over her shoulder toward viewer"), reference cinematic aesthetic cues (lighting, framing, lens, shot type), anchor realism by stating skin shows subtle pores, light wrinkles, and realistic surface detail, end with "keep everything else unchanged," and include negative safeguards like "no distortion, no blur artifacts{focus_safeguards}.\""""
+                system_prompt = f"""You are an expert assistant generating concise, single-sentence Qwen-Image-Edit instructions. Always be completely decisive and definitive - when you see something that could be described multiple ways, make a confident choice and state it as fact. Never use uncertain language like "appears to be", "seems to be", "might be", "possibly", "likely", or "or". Instead of "holding a black folder or book", write "holding a black folder".
+
+Always begin with "Make this person…", include vivid, focused scene details (e.g. bedroom props, lights, furniture or gym bench, textured wall, window views) early to anchor the setting{"," if focus_instruction else ""} {focus_instruction}, {clothing_note}, include clear torso and head orientation (e.g., "back facing the camera with torso turned 45° and head looking over her shoulder toward viewer"), reference cinematic aesthetic cues (lighting, framing, lens, shot type), anchor realism by stating skin shows subtle pores, light wrinkles, and realistic surface detail, end with "keep everything else unchanged," and include negative safeguards like "no distortion, no blur artifacts{focus_safeguards}.\""""
                 user_prompt = "Please analyze this image and generate a single-sentence Qwen-Image-Edit instruction following the guidelines in the system prompt."
 
             # Convert image to bytes for Gemini
@@ -356,7 +361,7 @@ Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, h
             if describe_clothing:
                 clothing_prompt = """
 2. CLOTHING (Second Paragraph)
-Describe all visible clothing and accessories with absolute certainty. Be specific: identify garment type, definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes."""
+Describe all visible clothing and accessories with absolute certainty and definitiveness. Be specific: identify garment type with confidence, state definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Make decisive choices when multiple interpretations are possible - choose one specific description and state it as fact. Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes."""
                 scene_num = "3"
                 movement_num = "4"
                 cinematic_num = "5"
@@ -395,16 +400,18 @@ Lighting (source/direction/quality/temperature), camera details (shot type, angl
 {style_num}. STYLIZATION & TONE ({["Fifth", "Sixth"][0 if not describe_clothing else 1]} Paragraph)
 Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.)."""
 
-            # Build critical note
             critical_note = f"CRITICAL: Output exactly {paragraph_count} paragraphs, one per category, separated by a blank line."
             if not describe_clothing:
                 critical_note += " DO NOT describe clothing, accessories, or garments in any paragraph."
             if not describe_bokeh:
                 critical_note += " Never mention depth of field, bokeh, blur, optics, DOF, rack focus, or any depth-related visual effects."
-            critical_note += " Never mention prohibited attributes, even if visible. Provide definitive descriptions without uncertainty - avoid phrases like 'appears to be' or 'seems to be'."
+            critical_note += " Never mention prohibited attributes, even if visible. Be completely decisive and definitive in all descriptions - eliminate all uncertainty language including 'appears to be', 'seems to be', 'might be', 'possibly', 'likely', 'or', 'either/or'. When multiple interpretations are possible, confidently choose one and state it as absolute fact."
 
             # Combine all parts
             system_prompt = f"""You are an expert assistant specialized in analyzing and verbalizing input videos for cinematic-quality video transformation using the Wan 2.2 + VACE workflow.
+
+DECISIVENESS REQUIREMENT: Always provide definitive, certain descriptions. When you see something that could be described multiple ways, make a confident choice and state it as fact. Never use uncertain language like "appears to be", "seems to be", "might be", "possibly", "likely", or "or". Instead of "holding a black folder or book", write "holding a black folder". Instead of "wearing what appears to be denim", write "wearing dark blue denim jeans".
+
 Before writing, silently review all provided frames as a single clip and infer motion across time; reason stepwise over the entire sequence (start → middle → end). Do not use meta phrases (e.g., "this video shows").
 Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
 
