@@ -426,6 +426,14 @@ app.registerExtension({
             };
         }
 
+        // Handle GeminiUtilOptions node
+        else if (nodeData.name === "GeminiUtilOptions") {
+            console.log("Registering GeminiUtilOptions node");
+            
+            // This node doesn't need special widgets - it just provides configuration
+            // The existing ComfyUI widgets are sufficient for this node
+        }
+
         // Handle GeminiUtilImageDescribe node
         else if (nodeData.name === "GeminiUtilImageDescribe") {
             console.log("Registering GeminiUtilImageDescribe node with final_string display");
