@@ -746,7 +746,7 @@ Please check:
 class GeminiMediaDescribe:
     """
     A ComfyUI custom node for describing images or videos using Google's Gemini API.
-    Supports both uploaded media and random selection from a directory path.
+    Supports both uploaded media and random selection from a directory path (including subdirectories).
     """
 
     def __init__(self):
@@ -1317,7 +1317,7 @@ Please check:
                 "media_path": ("STRING", {
                     "multiline": False,
                     "default": "",
-                    "tooltip": "Directory path to randomly select media from (used when media_source is Randomize Media from Path)"
+                    "tooltip": "Directory path to randomly select media from, including all subdirectories (used when media_source is Randomize Media from Path)"
                 }),
                 "uploaded_image_file": ("STRING", {
                     "default": "",
@@ -1363,7 +1363,7 @@ Please check:
             media_type: Type of media ("image" or "video")
             seed: Seed for randomization when using "Randomize Media from Path" (forces re-execution)
             image: ComfyUI IMAGE tensor (optional, used for uploaded images)
-            media_path: Directory path to randomly select media from (optional)
+            media_path: Directory path to randomly select media from, including subdirectories (optional)
             uploaded_image_file: Path to uploaded image file (optional)
             uploaded_video_file: Path to uploaded video file (optional)
             frame_rate: Frame rate for temporary video (legacy parameter, not used)
@@ -1406,11 +1406,15 @@ Path Debug Info:
                 else:  # video
                     extensions = ["*.mp4", "*.avi", "*.mov", "*.mkv", "*.wmv", "*.flv", "*.webm"]
 
-                # Find all matching files
+                # Find all matching files (including subdirectories)
                 all_files = []
                 for ext in extensions:
+                    # Search in root directory
                     all_files.extend(glob.glob(os.path.join(media_path, ext)))
                     all_files.extend(glob.glob(os.path.join(media_path, ext.upper())))
+                    # Search in subdirectories recursively
+                    all_files.extend(glob.glob(os.path.join(media_path, "**", ext), recursive=True))
+                    all_files.extend(glob.glob(os.path.join(media_path, "**", ext.upper()), recursive=True))
 
                 if not all_files:
                     try:
@@ -1423,7 +1427,8 @@ Directory scan results:
 • Path: {media_path}
 • Total items in directory: {total_files}
 • Sample files: {sample_files}
-• Looking for {media_type} files with extensions: {extensions}"""
+• Looking for {media_type} files with extensions: {extensions}
+• Search includes subdirectories recursively"""
 
                         raise ValueError(f"No {media_type} files found in path: {media_path}{debug_info}")
                     except PermissionError:
@@ -1436,10 +1441,10 @@ Directory scan results:
 
                 if media_type == "image":
                     # For random image, we'll read it as PIL and convert to bytes
-                    media_info_text = f"📷 Image Processing Info (Random Selection):\n• File: {os.path.basename(selected_media_path)}\n• Source: Random from {media_path}"
+                    media_info_text = f"📷 Image Processing Info (Random Selection):\n• File: {os.path.basename(selected_media_path)}\n• Source: Random from {media_path} (including subdirectories)\n• Full path: {selected_media_path}"
                 else:
                     # For random video, set up for video processing
-                    media_info_text = f"📹 Video Processing Info (Random Selection):\n• File: {os.path.basename(selected_media_path)}\n• Source: Random from {media_path}"
+                    media_info_text = f"📹 Video Processing Info (Random Selection):\n• File: {os.path.basename(selected_media_path)}\n• Source: Random from {media_path} (including subdirectories)\n• Full path: {selected_media_path}"
             else:
                 # Upload Media mode
                 if media_type == "image":
