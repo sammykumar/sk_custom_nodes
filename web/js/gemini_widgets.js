@@ -568,6 +568,7 @@ app.registerExtension({
                         "media_path",
                         "uploaded_image_file",
                         "uploaded_video_file",
+                        "seed",
                     ];
 
                     for (const widgetName of widgetsToHide) {
@@ -698,6 +699,9 @@ app.registerExtension({
                     const originalUploadedVideoWidget = this.widgets.find(
                         (w) => w.name === "uploaded_video_file"
                     );
+                    const originalSeedWidget = this.widgets.find(
+                        (w) => w.name === "seed"
+                    );
 
                     // Clear all previous media state when switching configurations
                     this.clearAllMediaState();
@@ -708,6 +712,7 @@ app.registerExtension({
                     this.removeWidgetSafely(this.imageInfoWidget);
                     this.removeWidgetSafely(this.videoUploadWidget);
                     this.removeWidgetSafely(this.videoInfoWidget);
+                    this.removeWidgetSafely(this.randomizeSeedWidget);
                     // Don't remove the original media_path widget, just manage its visibility
                     // this.removeWidgetSafely(this.mediaPathWidget);
 
@@ -716,6 +721,7 @@ app.registerExtension({
                     this.imageInfoWidget = null;
                     this.videoUploadWidget = null;
                     this.videoInfoWidget = null;
+                    this.randomizeSeedWidget = null;
                     // this.mediaPathWidget = null;
 
                     // Manage visibility of original input widgets
@@ -728,6 +734,39 @@ app.registerExtension({
                             originalMediaPathWidget.computeSize =
                                 originalMediaPathWidget.constructor.prototype.computeSize;
                             this.mediaPathWidget = originalMediaPathWidget; // Reference the original
+                        }
+
+                        // Show the seed widget for randomization
+                        if (originalSeedWidget) {
+                            originalSeedWidget.type = "number";
+                            originalSeedWidget.computeSize =
+                                originalSeedWidget.constructor.prototype.computeSize;
+                            console.log(
+                                "[STATE] Showing seed widget for randomization"
+                            );
+                        }
+
+                        // Add a randomize seed button when in randomize mode
+                        if (!this.randomizeSeedWidget) {
+                            this.randomizeSeedWidget = this.addWidget(
+                                "button",
+                                "🎲 Randomize Seed",
+                                "randomize_seed",
+                                () => {
+                                    // Generate a random seed and update the seed widget
+                                    const randomSeed = Math.floor(
+                                        Math.random() * 0xffffffffffffffff
+                                    );
+                                    if (originalSeedWidget) {
+                                        originalSeedWidget.value = randomSeed;
+                                        console.log(
+                                            `[SEED] Generated random seed: ${randomSeed}`
+                                        );
+                                    }
+                                }
+                            );
+                            this.randomizeSeedWidget.serialize = false;
+                            console.log("[STATE] Added randomize seed button");
                         }
 
                         // Hide upload file widgets
@@ -753,6 +792,15 @@ app.registerExtension({
                         if (originalMediaPathWidget) {
                             originalMediaPathWidget.type = "hidden";
                             originalMediaPathWidget.computeSize = () => [0, -4];
+                        }
+
+                        // Hide the seed widget when not randomizing
+                        if (originalSeedWidget) {
+                            originalSeedWidget.type = "hidden";
+                            originalSeedWidget.computeSize = () => [0, -4];
+                            console.log(
+                                "[STATE] Hiding seed widget for upload mode"
+                            );
                         }
 
                         if (mediaType === "image") {
@@ -870,6 +918,60 @@ app.registerExtension({
                             );
                         this.updateMediaWidgets();
                     };
+                }
+
+                return result;
+            };
+
+            // Add onSerialize method to save UI state
+            const onSerialize = nodeType.prototype.onSerialize;
+            nodeType.prototype.onSerialize = function (o) {
+                const result = onSerialize?.apply(this, arguments);
+
+                // Save current widget state for persistence
+                o.widgets_values = o.widgets_values || [];
+                o.ui_state = {
+                    media_source:
+                        this.mediaSourceWidget?.value || "Upload Media",
+                    media_type: this.mediaTypeWidget?.value || "image",
+                };
+
+                console.log("[SERIALIZE] Saving UI state:", o.ui_state);
+                return result;
+            };
+
+            // Add onConfigure method to restore UI state
+            const onConfigure = nodeType.prototype.onConfigure;
+            nodeType.prototype.onConfigure = function (o) {
+                const result = onConfigure?.apply(this, arguments);
+
+                // Restore UI state after widgets are created
+                if (o.ui_state) {
+                    console.log("[CONFIGURE] Restoring UI state:", o.ui_state);
+
+                    // Set widget values if they exist
+                    if (this.mediaSourceWidget && o.ui_state.media_source) {
+                        this.mediaSourceWidget.value = o.ui_state.media_source;
+                    }
+                    if (this.mediaTypeWidget && o.ui_state.media_type) {
+                        this.mediaTypeWidget.value = o.ui_state.media_type;
+                    }
+
+                    // Update UI to match restored state
+                    setTimeout(() => {
+                        this.updateMediaWidgets();
+                        console.log(
+                            "[CONFIGURE] UI state restored and widgets updated"
+                        );
+                    }, 0);
+                } else {
+                    console.log(
+                        "[CONFIGURE] No UI state found, using defaults"
+                    );
+                    // Ensure initial state is applied even without saved state
+                    setTimeout(() => {
+                        this.updateMediaWidgets();
+                    }, 0);
                 }
 
                 return result;
@@ -1170,6 +1272,21 @@ app.registerExtension({
                 // This is just a placeholder method
                 console.log("Video preview cleared for media node");
             };
+        }
+    },
+
+    // Hook to handle workflow loading
+    loadedGraphNode(node, app) {
+        if (node.comfyClass === "GeminiUtilMediaDescribe") {
+            // Ensure UI state is applied when workflow is loaded
+            if (node.updateMediaWidgets) {
+                setTimeout(() => {
+                    node.updateMediaWidgets();
+                    console.log(
+                        "[LOADED] Applied UI state for loaded workflow node"
+                    );
+                }, 100); // Small delay to ensure all widgets are properly initialized
+            }
         }
     },
 });
