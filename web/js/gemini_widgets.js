@@ -571,7 +571,6 @@ app.registerExtension({
                     this.removeWidgetSafely(this.imageInfoWidget);
                     this.removeWidgetSafely(this.videoUploadWidget);
                     this.removeWidgetSafely(this.videoInfoWidget);
-                    this.removeWidgetSafely(this.randomizeSeedWidget);
                     // Don't remove the original media_path widget, just manage its visibility
                     // this.removeWidgetSafely(this.mediaPathWidget);
 
@@ -580,7 +579,6 @@ app.registerExtension({
                     this.imageInfoWidget = null;
                     this.videoUploadWidget = null;
                     this.videoInfoWidget = null;
-                    this.randomizeSeedWidget = null;
                     // this.mediaPathWidget = null;
 
                     // Manage visibility of original input widgets
@@ -602,6 +600,8 @@ app.registerExtension({
                                 originalSeedWidget.constructor.prototype.computeSize;
                             console.log("[STATE] Showing seed widget for randomization");
                         }
+
+                        // Note: Seed randomization is handled by ComfyUI's built-in controls
 
                         // Hide upload file widgets
                         if (originalUploadedImageWidget) {
@@ -1058,6 +1058,7 @@ app.registerExtension({
                 // This is just a placeholder method
                 console.log("Video preview cleared for media node");
             };
+
         }
     },
 

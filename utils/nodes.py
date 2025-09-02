@@ -545,6 +545,12 @@ CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank li
                     "default": "image",
                     "tooltip": "Select the type of media to analyze"
                 }),
+                "seed": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 0xFFFFFFFFFFFFFFFF,
+                    "tooltip": "Seed for randomization when using 'Randomize Media from Path'. Use different seeds to force re-execution."
+                }),
             },
             "optional": {
                 "image": ("IMAGE", {
@@ -585,7 +591,7 @@ CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank li
     FUNCTION = "describe_media"
     CATEGORY = "Gemini"
 
-    def describe_media(self, gemini_api_key, gemini_model, model_type, description_mode, prefix_text, media_source, media_type, image=None, media_path="", uploaded_image_file="", uploaded_video_file="", frame_rate=24.0, max_duration=0.0):
+    def describe_media(self, gemini_api_key, gemini_model, model_type, description_mode, prefix_text, media_source, media_type, seed, image=None, media_path="", uploaded_image_file="", uploaded_video_file="", frame_rate=24.0, max_duration=0.0):
         """
         Process media (image or video) and analyze with Gemini
 
@@ -597,6 +603,7 @@ CRITICAL: Output exactly 5 paragraphs, one per category, separated by a blank li
             prefix_text: Text to prepend to the generated description
             media_source: Source of media ("Upload Media" or "Randomize Media from Path")
             media_type: Type of media ("image" or "video")
+            seed: Seed for randomization when using 'Randomize Media from Path'. Use different seeds to force re-execution.
             image: ComfyUI IMAGE tensor (optional, used for uploaded images)
             media_path: Directory path to randomly select media from, including subdirectories (optional)
             uploaded_image_file: Path to uploaded image file (optional)
@@ -672,8 +679,13 @@ Directory scan results:
                     except Exception as scan_error:
                         raise ValueError(f"Error scanning path {media_path}: {str(scan_error)}")
 
-                # Randomly select a file
+                # Randomly select a file using the seed for reproducible selection
+                # When seed changes, a different file may be selected, forcing re-execution
+                random.seed(seed)
                 selected_media_path = random.choice(all_files)
+
+                # Reset random state to avoid affecting other operations
+                random.seed(None)
 
                 if media_type == "image":
                     # For random image, we'll read it as PIL and convert to bytes
