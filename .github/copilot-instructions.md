@@ -2,6 +2,15 @@
 
 **ALWAYS reference these instructions first and fallback to search or bash commands only when you encounter unexpected information that does not match the info here.**
 
+## Official ComfyUI Documentation
+
+For technical implementation details, reference these official ComfyUI custom node development guides:
+
+-   **Backend (Python) Development**: https://docs.comfy.org/custom-nodes/backend/server_overview
+-   **Web Extension (JavaScript) Development**: https://docs.comfy.org/custom-nodes/js/javascript_overview
+
+_Note: These are the official JavaScript widget docs, not React-based extensions._
+
 ## Project Overview
 
 SK Custom Nodes is a ComfyUI extension that consists of two essential components that work together:
