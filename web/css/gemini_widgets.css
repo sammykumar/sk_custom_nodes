@@ -102,3 +102,65 @@
 .gemini-video-preview video.duration-warning {
     animation: duration-warning 1s ease-in-out infinite;
 }
+
+/* Media Preview Styles for GeminiUtilMediaDescribe Node */
+
+.gemini_media_preview {
+    background: #2a2a2a;
+    border-radius: 8px;
+    padding: 10px;
+    margin: 5px 0;
+    border: 1px solid #444;
+    box-sizing: border-box;
+}
+
+.gemini_media_preview img,
+.gemini_media_preview video {
+    width: 100%;
+    height: auto;
+    border-radius: 4px;
+    background: #000;
+    display: block;
+    object-fit: contain;
+    transition: all 0.3s ease;
+}
+
+.gemini_media_preview video {
+    max-height: 300px; /* Reasonable maximum height for videos */
+}
+
+.gemini_media_preview img {
+    max-height: 400px; /* Reasonable maximum height for images */
+}
+
+.gemini_media_preview:hover {
+    border-color: #666;
+}
+
+/* Loading state for media preview */
+.gemini_media_preview.loading {
+    background: #1a1a1a;
+    border: 2px dashed #555;
+    text-align: center;
+    padding: 20px;
+}
+
+.gemini_media_preview.loading::before {
+    content: "Loading media preview...";
+    color: #888;
+    font-size: 12px;
+}
+
+/* Error state for media preview */
+.gemini_media_preview.error {
+    background: #2a1a1a;
+    border: 2px dashed #a55;
+    text-align: center;
+    padding: 20px;
+}
+
+.gemini_media_preview.error::before {
+    content: "Failed to load media preview";
+    color: #a88;
+    font-size: 12px;
+}

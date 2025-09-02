@@ -624,8 +624,10 @@ app.registerExtension({
 
                 // Method to clear all media state (images, videos, previews, file data)
                 this.clearAllMediaState = function () {
-                    // Clear video state and preview
-                    this.clearVideoPreview();
+                    // Clear media preview (works for both images and videos)
+                    this.clearMediaPreview();
+
+                    // Clear video state
                     this.uploadedVideoFile = null;
                     this.uploadedVideoSubfolder = null;
 
@@ -1002,9 +1004,11 @@ app.registerExtension({
             nodeType.prototype.clearCurrentMediaState = function () {
                 const mediaType = this.mediaTypeWidget?.value || "image";
 
+                // Clear media preview regardless of media type
+                this.clearMediaPreview();
+
                 if (mediaType === "video") {
                     // Clear video state
-                    this.clearVideoPreview();
                     this.uploadedVideoFile = null;
                     this.uploadedVideoSubfolder = null;
 
@@ -1112,6 +1116,9 @@ app.registerExtension({
                             }
                             this.imageFileWidget.value = `${this.uploadedImageSubfolder}/${this.uploadedImageFile}`;
                         }
+
+                        // Show the image preview
+                        this.showImagePreview();
 
                         // Show success notification
                         app.extensionManager?.toast?.add({
@@ -1232,6 +1239,9 @@ app.registerExtension({
                             this.videoFileWidget.value = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
                         }
 
+                        // Show the video preview
+                        this.showVideoPreview();
+
                         // Show success notification
                         app.extensionManager?.toast?.add({
                             severity: "success",
@@ -1266,11 +1276,329 @@ app.registerExtension({
                 fileInput.click();
             };
 
-            // Add video preview clearing method (minimal version for media node)
+            // Clear media preview method
+            nodeType.prototype.clearMediaPreview = function () {
+                // Remove existing media preview widget if any
+                if (this.mediaPreviewWidget) {
+                    // Remove DOM element if it exists
+                    if (
+                        this.mediaPreviewWidget.parentEl &&
+                        this.mediaPreviewWidget.parentEl.parentNode
+                    ) {
+                        this.mediaPreviewWidget.parentEl.parentNode.removeChild(
+                            this.mediaPreviewWidget.parentEl
+                        );
+                    }
+
+                    const widgetIndex = this.widgets.indexOf(this.mediaPreviewWidget);
+                    if (widgetIndex !== -1) {
+                        this.widgets.splice(widgetIndex, 1);
+                    }
+                    this.mediaPreviewWidget = null;
+                }
+
+                // Clear media properties
+                this.mediaAspectRatio = null;
+                this.mediaElement = null;
+                
+                console.log("Media preview cleared");
+            };
+
+            // Add video preview clearing method (backward compatibility)
             nodeType.prototype.clearVideoPreview = function () {
-                // For the media node, we don't have complex video preview
-                // This is just a placeholder method
-                console.log("Video preview cleared for media node");
+                this.clearMediaPreview();
+            };
+
+            // Show image preview method
+            nodeType.prototype.showImagePreview = function () {
+                if (!this.uploadedImageFile || !this.uploadedImageSubfolder) {
+                    return;
+                }
+
+                // Clear any existing preview first
+                this.clearMediaPreview();
+
+                // Create image preview URL
+                const imageUrl = `/view?filename=${
+                    this.uploadedImageFile
+                }&subfolder=${
+                    this.uploadedImageSubfolder
+                }&type=input&t=${Date.now()}`;
+
+                // Create container element
+                const element = document.createElement("div");
+                const previewNode = this;
+
+                // Create a DOM widget using ComfyUI's built-in method (VHS approach)
+                this.mediaPreviewWidget = this.addDOMWidget(
+                    "mediapreview",
+                    "preview",
+                    element,
+                    {
+                        serialize: false,
+                        hideOnZoom: false,
+                        getValue() {
+                            return element.value;
+                        },
+                        setValue(v) {
+                            element.value = v;
+                        },
+                    }
+                );
+
+                // Add drag support
+                this.allowDragFromWidget(this.mediaPreviewWidget);
+
+                // Set up compute size for aspect ratio preservation (VHS approach)
+                this.mediaPreviewWidget.computeSize = function (width) {
+                    if (previewNode.mediaAspectRatio && !this.parentEl.hidden) {
+                        // VHS-style calculation: (previewNode.size[0]-20) / this.aspectRatio + 10
+                        let height = (previewNode.size[0] - 20) / previewNode.mediaAspectRatio + 10;
+                        return [width, Math.max(height, 0)];
+                    }
+                    return [width, -4]; // No media loaded
+                };
+
+                // Add event listeners for canvas interaction
+                this.addCanvasEventListeners(element);
+
+                // Create parent container for the image widget
+                this.mediaPreviewWidget.parentEl = document.createElement("div");
+                this.mediaPreviewWidget.parentEl.className = "gemini_media_preview";
+                this.mediaPreviewWidget.parentEl.style.cssText = `
+                    width: 100%;
+                    padding: 10px;
+                    box-sizing: border-box;
+                `;
+
+                // Add the image content
+                this.mediaPreviewWidget.parentEl.innerHTML = `
+                    <img 
+                        id="image-${this.id}"
+                        style="
+                            width: 100%;
+                            height: auto;
+                            display: block;
+                            background: #000;
+                            object-fit: contain;
+                        "
+                        src="${imageUrl}"
+                        alt="Image preview"
+                    />
+                `;
+
+                // Append to the main element
+                element.appendChild(this.mediaPreviewWidget.parentEl);
+
+                // Set up image load handler to calculate aspect ratio
+                setTimeout(() => {
+                    const imageElement = document.getElementById(`image-${this.id}`);
+                    if (imageElement) {
+                        this.mediaElement = imageElement;
+                        
+                        imageElement.onload = () => {
+                            this.mediaAspectRatio = imageElement.naturalWidth / imageElement.naturalHeight;
+                            console.log(`Image loaded: aspect ratio ${this.mediaAspectRatio}`);
+                            
+                            // Force node to recalculate size with aspect ratio
+                            this.setSize(this.computeSize());
+                        };
+
+                        imageElement.onerror = () => {
+                            console.error("Image failed to load");
+                            if (this.mediaPreviewWidget && this.mediaPreviewWidget.parentEl) {
+                                this.mediaPreviewWidget.parentEl.hidden = true;
+                                this.setSize(this.computeSize());
+                            }
+                        };
+                    }
+                }, 0);
+
+                // Force node to recalculate size
+                this.setSize(this.computeSize());
+            };
+
+            // Show video preview method with aspect ratio preservation
+            nodeType.prototype.showVideoPreview = function () {
+                if (!this.uploadedVideoFile || !this.uploadedVideoSubfolder) {
+                    return;
+                }
+
+                // Clear any existing preview first
+                this.clearMediaPreview();
+
+                // Create video preview URL
+                const videoUrl = `/view?filename=${
+                    this.uploadedVideoFile
+                }&subfolder=${
+                    this.uploadedVideoSubfolder
+                }&type=input&t=${Date.now()}`;
+
+                // Create container element
+                const element = document.createElement("div");
+                const previewNode = this;
+
+                // Create a DOM widget using ComfyUI's built-in method (VHS approach)
+                this.mediaPreviewWidget = this.addDOMWidget(
+                    "mediapreview",
+                    "preview",
+                    element,
+                    {
+                        serialize: false,
+                        hideOnZoom: false,
+                        getValue() {
+                            return element.value;
+                        },
+                        setValue(v) {
+                            element.value = v;
+                        },
+                    }
+                );
+
+                // Add drag support
+                this.allowDragFromWidget(this.mediaPreviewWidget);
+
+                // Set up compute size for aspect ratio preservation (VHS approach)
+                this.mediaPreviewWidget.computeSize = function (width) {
+                    if (previewNode.mediaAspectRatio && !this.parentEl.hidden) {
+                        // VHS-style calculation: (previewNode.size[0]-20) / this.aspectRatio + 10
+                        let height = (previewNode.size[0] - 20) / previewNode.mediaAspectRatio + 10;
+                        return [width, Math.max(height, 0)];
+                    }
+                    return [width, -4]; // No media loaded
+                };
+
+                // Add event listeners for canvas interaction
+                this.addCanvasEventListeners(element);
+
+                // Create parent container for the video widget
+                this.mediaPreviewWidget.parentEl = document.createElement("div");
+                this.mediaPreviewWidget.parentEl.className = "gemini_media_preview";
+                this.mediaPreviewWidget.parentEl.style.cssText = `
+                    width: 100%;
+                    padding: 10px;
+                    box-sizing: border-box;
+                `;
+
+                // Add the video content
+                this.mediaPreviewWidget.parentEl.innerHTML = `
+                    <video 
+                        id="video-${this.id}"
+                        loop
+                        autoplay 
+                        muted
+                        controls
+                        style="
+                            width: 100%;
+                            height: auto;
+                            display: block;
+                            background: #000;
+                            object-fit: contain;
+                        "
+                    >
+                        <source src="${videoUrl}" type="video/mp4">
+                        Your browser does not support video playback.
+                    </video>
+                `;
+
+                // Append to the main element
+                element.appendChild(this.mediaPreviewWidget.parentEl);
+
+                // Set up video load handler to calculate aspect ratio
+                setTimeout(() => {
+                    const videoElement = document.getElementById(`video-${this.id}`);
+                    if (videoElement) {
+                        this.mediaElement = videoElement;
+                        
+                        videoElement.addEventListener("loadedmetadata", () => {
+                            this.mediaAspectRatio = videoElement.videoWidth / videoElement.videoHeight;
+                            console.log(`Video loaded: aspect ratio ${this.mediaAspectRatio}, duration ${videoElement.duration}s`);
+                            
+                            // Force node to recalculate size with aspect ratio
+                            this.setSize(this.computeSize());
+                        });
+
+                        videoElement.addEventListener("error", () => {
+                            console.error("Video failed to load");
+                            if (this.mediaPreviewWidget && this.mediaPreviewWidget.parentEl) {
+                                this.mediaPreviewWidget.parentEl.hidden = true;
+                                this.setSize(this.computeSize());
+                            }
+                        });
+                    }
+                }, 0);
+
+                // Force node to recalculate size
+                this.setSize(this.computeSize());
+            };
+
+            // Helper method to add canvas event listeners (from VHS)
+            nodeType.prototype.addCanvasEventListeners = function (element) {
+                element.addEventListener(
+                    "contextmenu",
+                    (e) => {
+                        e.preventDefault();
+                        return app.canvas._mousedown_callback(e);
+                    },
+                    true
+                );
+
+                element.addEventListener(
+                    "pointerdown",
+                    (e) => {
+                        e.preventDefault();
+                        return app.canvas._mousedown_callback(e);
+                    },
+                    true
+                );
+
+                element.addEventListener(
+                    "mousewheel",
+                    (e) => {
+                        e.preventDefault();
+                        return app.canvas._mousewheel_callback(e);
+                    },
+                    true
+                );
+
+                element.addEventListener(
+                    "pointermove",
+                    (e) => {
+                        e.preventDefault();
+                        return app.canvas._mousemove_callback(e);
+                    },
+                    true
+                );
+
+                element.addEventListener(
+                    "pointerup",
+                    (e) => {
+                        e.preventDefault();
+                        return app.canvas._mouseup_callback(e);
+                    },
+                    true
+                );
+            };
+
+            // Helper method for drag support (from VHS)
+            nodeType.prototype.allowDragFromWidget = function (widget) {
+                widget.onPointerDown = function (pointer, node) {
+                    pointer.onDragStart = () => {
+                        app.canvas.emitBeforeChange();
+                        app.canvas.graph?.beforeChange();
+                        app.canvas.processSelect(node, pointer.eDown, true);
+                        app.canvas.isDragging = true;
+                    };
+                    pointer.onDragEnd = () => {
+                        app.canvas.isDragging = false;
+                        app.canvas.graph?.afterChange();
+                        app.canvas.emitAfterChange();
+                        app.canvas.dirty_canvas = true;
+                        app.canvas.dirty_bgcanvas = true;
+                    };
+                    app.canvas.dirty_canvas = true;
+                    return true;
+                };
             };
         }
     },
