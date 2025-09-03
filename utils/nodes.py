@@ -280,13 +280,19 @@ Generate descriptions that adhere to the following structured layers and constra
 
             # Check cache for existing result
             cache = get_cache()
+
+            # Build options dict for caching
+            cache_options = {
+                "describe_clothing": describe_clothing,
+                "describe_hair_style": describe_hair_style,
+                "describe_bokeh": describe_bokeh
+            }
+
             cached_result = cache.get(
                 media_identifier=media_identifier,
                 gemini_model=gemini_model,
                 model_type=model_type,
-                describe_clothing=describe_clothing,
-                describe_hair_style=describe_hair_style,
-                describe_bokeh=describe_bokeh
+                options=cache_options
             )
 
             if cached_result is not None:
@@ -352,9 +358,7 @@ Generate descriptions that adhere to the following structured layers and constra
                     gemini_model=gemini_model,
                     description=description,
                     model_type=model_type,
-                    describe_clothing=describe_clothing,
-                    describe_hair_style=describe_hair_style,
-                    describe_bokeh=describe_bokeh
+                    options=cache_options
                 )
             else:
                 error_msg = "Error: Gemini returned empty response"
@@ -525,13 +529,19 @@ Generate descriptions that adhere to the following structured layers and constra
 
             # Check cache for existing result
             cache = get_cache()
+
+            # Build options dict for caching
+            cache_options = {
+                "describe_clothing": describe_clothing,
+                "describe_hair_style": describe_hair_style,
+                "describe_bokeh": describe_bokeh
+            }
+
             cached_result = cache.get(
                 media_identifier=media_identifier,
                 gemini_model=gemini_model,
                 model_type="",  # Videos don't use model_type
-                describe_clothing=describe_clothing,
-                describe_hair_style=describe_hair_style,
-                describe_bokeh=describe_bokeh
+                options=cache_options
             )
 
             if cached_result is not None:
@@ -596,9 +606,7 @@ Generate descriptions that adhere to the following structured layers and constra
                     gemini_model=gemini_model,
                     description=description,
                     model_type="",  # Videos don't use model_type
-                    describe_clothing=describe_clothing,
-                    describe_hair_style=describe_hair_style,
-                    describe_bokeh=describe_bokeh
+                    options=cache_options
                 )
             else:
                 error_msg = "Error: Gemini returned empty response"
