@@ -7,6 +7,7 @@ import subprocess
 import numpy as np
 from PIL import Image
 import io
+from .cache import get_cache, get_file_media_identifier, get_tensor_media_identifier
 
 
 class GeminiUtilOptions:
@@ -274,6 +275,48 @@ Always begin with "Make this person…", include vivid, focused scene details (e
             else:
                 raise ValueError("No image data available for processing")
 
+            # Determine media identifier for caching
+            if selected_media_path:
+                # For file-based media, use file path + modification time
+                media_identifier = get_file_media_identifier(selected_media_path)
+            else:
+                # For tensor-based media, use content hash
+                media_identifier = get_tensor_media_identifier(image)
+
+            # Check cache for existing result
+            cache = get_cache()
+
+            # Build options dict for caching
+            cache_options = {
+                "describe_clothing": describe_clothing,
+                "describe_hair_style": describe_hair_style,
+                "describe_bokeh": describe_bokeh
+            }
+
+            cached_result = cache.get(
+                media_identifier=media_identifier,
+                gemini_model=gemini_model,
+                model_type=model_type,
+                options=cache_options
+            )
+
+            if cached_result is not None:
+                # Return cached result
+                description = cached_result['description']
+
+                # Format outputs for cached image processing
+                gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete (Cached)
+• Model: {gemini_model}
+• Model Type: {model_type}
+• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
+• Input: Image
+• Cache: HIT at {cached_result.get('human_timestamp', 'unknown time')}"""
+
+                processed_media_path = selected_media_path if selected_media_path else ""
+                final_string = f"{prefix_text}{description}" if prefix_text else description
+
+                return (description, media_info_text, gemini_status, processed_media_path, final_string)
+
             # Initialize the Gemini client
             client = genai.Client(api_key=gemini_api_key)
 
@@ -313,6 +356,15 @@ Always begin with "Make this person…", include vivid, focused scene details (e
             # Process response
             if response.text is not None:
                 description = response.text.strip()
+
+                # Store successful result in cache
+                cache.set(
+                    media_identifier=media_identifier,
+                    gemini_model=gemini_model,
+                    description=description,
+                    model_type=model_type,
+                    options=cache_options
+                )
             else:
                 error_msg = "Error: Gemini returned empty response"
                 if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
@@ -479,6 +531,42 @@ Generate descriptions that adhere to the following structured layers and constra
 • Resolution: {width}x{height}
 • File Size: {file_size:.2f} MB"""
 
+            # Determine media identifier for caching (always file-based for videos)
+            media_identifier = get_file_media_identifier(selected_media_path)
+
+            # Check cache for existing result
+            cache = get_cache()
+
+            # Build options dict for caching
+            cache_options = {
+                "describe_clothing": describe_clothing,
+                "describe_hair_style": describe_hair_style,
+                "describe_bokeh": describe_bokeh
+            }
+
+            cached_result = cache.get(
+                media_identifier=media_identifier,
+                gemini_model=gemini_model,
+                model_type="",  # Videos don't use model_type
+                options=cache_options
+            )
+
+            if cached_result is not None:
+                # Return cached result
+                description = cached_result['description']
+
+                # Format outputs for cached video processing
+                gemini_status = f"""🤖 Gemini Analysis Status: ✅ Complete (Cached)
+• Model: {gemini_model}
+• API Key: {'*' * (len(gemini_api_key) - 4) + gemini_api_key[-4:] if len(gemini_api_key) >= 4 else '****'}
+• Input: Video
+• Cache: HIT at {cached_result.get('human_timestamp', 'unknown time')}"""
+
+                processed_media_path = selected_media_path if selected_media_path else ""
+                final_string = f"{prefix_text}{description}" if prefix_text else description
+
+                return (description, updated_media_info, gemini_status, processed_media_path, final_string)
+
             # Initialize the Gemini client
             client = genai.Client(api_key=gemini_api_key)
 
@@ -518,6 +606,15 @@ Generate descriptions that adhere to the following structured layers and constra
             # Process response
             if response.text is not None:
                 description = response.text.strip()
+
+                # Store successful result in cache
+                cache.set(
+                    media_identifier=media_identifier,
+                    gemini_model=gemini_model,
+                    description=description,
+                    model_type="",  # Videos don't use model_type
+                    options=cache_options
+                )
             else:
                 error_msg = "Error: Gemini returned empty response"
                 if hasattr(response, 'prompt_feedback') and response.prompt_feedback:

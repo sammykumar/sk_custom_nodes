@@ -121,6 +121,9 @@ output/
 models/
 .ruff_cache/
 
+# Gemini description cache
+cache/
+
 # OS and editor files
 .DS_Store
 Thumbs.db
