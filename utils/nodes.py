@@ -646,9 +646,9 @@ Generate descriptions that adhere to the following structured layers and constra
         """
         return {
             "required": {
-                "media_source": (["Upload Media", "Randomize Media from Path"], {
+                "media_source": (["Upload Media", "Randomize Media from Path", "Load Sequentially from Dir"], {
                     "default": "Upload Media",
-                    "tooltip": "Choose whether to upload media or randomize from a directory path"
+                    "tooltip": "Choose whether to upload media, randomize from a directory path, or load sequentially from directory"
                 }),
                 "media_type": (["image", "video"], {
                     "default": "image",
@@ -671,7 +671,13 @@ Generate descriptions that adhere to the following structured layers and constra
                 "media_path": ("STRING", {
                     "multiline": False,
                     "default": "",
-                    "tooltip": "Directory path to randomly select media from, including all subdirectories (used when media_source is Randomize Media from Path)"
+                    "tooltip": "Directory path to select media from, including all subdirectories (used when media_source is Randomize Media from Path or Load Sequentially from Dir)"
+                }),
+                "directory_index": ("INT", {
+                    "default": 0,
+                    "min": 0,
+                    "max": 9999,
+                    "tooltip": "Current index in directory for sequential loading. Automatically increments on each execution."
                 }),
                 "uploaded_image_file": ("STRING", {
                     "default": "",
@@ -703,17 +709,18 @@ Generate descriptions that adhere to the following structured layers and constra
     FUNCTION = "describe_media"
     CATEGORY = "Gemini"
 
-    def describe_media(self, media_source, media_type, seed, gemini_options=None, image=None, media_path="", uploaded_image_file="", uploaded_video_file="", frame_rate=24.0, max_duration=0.0):
+    def describe_media(self, media_source, media_type, seed, gemini_options=None, image=None, media_path="", directory_index=0, uploaded_image_file="", uploaded_video_file="", frame_rate=24.0, max_duration=0.0):
         """
         Process media (image or video) and analyze with Gemini
 
         Args:
-            media_source: Source of media ("Upload Media" or "Randomize Media from Path")
+            media_source: Source of media ("Upload Media", "Randomize Media from Path", or "Load Sequentially from Dir")
             media_type: Type of media ("image" or "video")
             seed: Seed for randomization when using 'Randomize Media from Path'. Use different seeds to force re-execution.
             gemini_options: Configuration options from Gemini Util - Options node (optional)
             image: ComfyUI IMAGE tensor (optional, used for uploaded images)
-            media_path: Directory path to randomly select media from, including subdirectories (optional)
+            media_path: Directory path to select media from, including subdirectories (optional)
+            directory_index: Current index in directory for sequential loading (optional)
             uploaded_image_file: Path to uploaded image file (optional)
             uploaded_video_file: Path to uploaded video file (optional)
             frame_rate: Frame rate for temporary video (legacy parameter, not used)
@@ -810,6 +817,9 @@ Directory scan results:
 
                 # Randomly select a file using the seed for reproducible selection
                 # When seed changes, a different file may be selected, forcing re-execution
+                # Remove duplicates and sort for consistency
+                all_files = list(set(all_files))  # Remove duplicates
+                all_files.sort()
                 random.seed(seed)
                 selected_media_path = random.choice(all_files)
 
@@ -822,6 +832,88 @@ Directory scan results:
                 else:
                     # For random video, set up for video processing
                     media_info_text = f"📹 Video Processing Info (Random Selection):\n• File: {os.path.basename(selected_media_path)}\n• Source: Random from {media_path} (including subdirectories)\n• Full path: {selected_media_path}"
+
+            elif media_source == "Load Sequentially from Dir":
+                if not media_path or not media_path.strip():
+                    raise ValueError("Media path is required when using 'Load Sequentially from Dir'")
+
+                # Validate path exists
+                if not os.path.exists(media_path):
+                    current_dir = os.getcwd()
+                    parent_dir = os.path.dirname(media_path) if media_path else "N/A"
+                    parent_exists = os.path.exists(parent_dir) if parent_dir else False
+
+                    debug_info = f"""
+Path Debug Info:
+• Requested path: {media_path}
+• Current working dir: {current_dir}
+• Parent directory: {parent_dir}
+• Parent exists: {parent_exists}
+• Is absolute path: {os.path.isabs(media_path) if media_path else False}"""
+
+                    raise ValueError(f"Media path does not exist: {media_path}{debug_info}")
+
+                # Define supported file extensions
+                if media_type == "image":
+                    extensions = ["*.jpg", "*.jpeg", "*.png", "*.bmp", "*.gif", "*.tiff", "*.webp"]
+                else:  # video
+                    extensions = ["*.mp4", "*.avi", "*.mov", "*.mkv", "*.wmv", "*.flv", "*.webm"]
+
+                # Find all matching files (including subdirectories)
+                all_files = []
+                for ext in extensions:
+                    # Search in root directory
+                    all_files.extend(glob.glob(os.path.join(media_path, ext)))
+                    all_files.extend(glob.glob(os.path.join(media_path, ext.upper())))
+                    # Search in subdirectories recursively
+                    all_files.extend(glob.glob(os.path.join(media_path, "**", ext), recursive=True))
+                    all_files.extend(glob.glob(os.path.join(media_path, "**", ext.upper()), recursive=True))
+
+                if not all_files:
+                    try:
+                        dir_contents = os.listdir(media_path)
+                        total_files = len(dir_contents)
+                        sample_files = dir_contents[:5]  # Show first 5 files
+
+                        debug_info = f"""
+Directory scan results:
+• Path: {media_path}
+• Total items in directory: {total_files}
+• Sample files: {sample_files}
+• Looking for {media_type} files with extensions: {extensions}
+• Search includes subdirectories recursively"""
+
+                        raise ValueError(f"No {media_type} files found in path: {media_path}{debug_info}")
+                    except PermissionError:
+                        raise ValueError(f"Permission denied accessing path: {media_path}")
+                    except Exception as scan_error:
+                        raise ValueError(f"Error scanning path {media_path}: {str(scan_error)}")
+
+                # Sort files alphabetically for consistent ordering and remove duplicates
+                all_files = list(set(all_files))  # Remove duplicates
+                all_files.sort()
+
+                # Get total count and current index
+                total_files = len(all_files)
+                current_index = directory_index % total_files if total_files > 0 else 0
+
+                # Select file at current index
+                selected_media_path = all_files[current_index]
+
+                # Create media info with directory status
+                if media_type == "image":
+                    media_info_text = (f"📷 Image Processing Info (Sequential from Dir):\n"
+                                     f"• File: {os.path.basename(selected_media_path)}\n"
+                                     f"• Index: {current_index + 1}/{total_files}\n"
+                                     f"• Source: Sequential from {media_path}\n"
+                                     f"• Full path: {selected_media_path}")
+                else:
+                    media_info_text = (f"📹 Video Processing Info (Sequential from Dir):\n"
+                                     f"• File: {os.path.basename(selected_media_path)}\n"
+                                     f"• Index: {current_index + 1}/{total_files}\n"
+                                     f"• Source: Sequential from {media_path}\n"
+                                     f"• Full path: {selected_media_path}")
+
             else:
                 # Upload Media mode
                 if media_type == "image":
