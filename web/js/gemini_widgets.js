@@ -32,6 +32,7 @@ app.registerExtension({
                 this.hideOptionalInputWidgets = function () {
                     const widgetsToHide = [
                         "media_path",
+                        "directory_index",
                         "uploaded_image_file",
                         "uploaded_video_file",
                         "seed",
@@ -134,6 +135,7 @@ app.registerExtension({
                         (w) => w.name === "uploaded_video_file"
                     );
                     const originalSeedWidget = this.widgets.find((w) => w.name === "seed");
+                    const originalDirectoryIndexWidget = this.widgets.find((w) => w.name === "directory_index");
 
                     // Clear all previous media state when switching configurations
                     this.clearAllMediaState();
@@ -176,6 +178,47 @@ app.registerExtension({
 
                         // Note: Seed randomization is handled by ComfyUI's built-in controls
 
+                        // Hide directory index widget (not needed for randomization)
+                        if (originalDirectoryIndexWidget) {
+                            originalDirectoryIndexWidget.type = "hidden";
+                            originalDirectoryIndexWidget.computeSize = () => [0, -4];
+                        }
+
+                        // Hide upload file widgets
+                        if (originalUploadedImageWidget) {
+                            originalUploadedImageWidget.type = "hidden";
+                            originalUploadedImageWidget.computeSize = () => [0, -4];
+                        }
+                        if (originalUploadedVideoWidget) {
+                            originalUploadedVideoWidget.type = "hidden";
+                            originalUploadedVideoWidget.computeSize = () => [0, -4];
+                        }
+                    } else if (mediaSource === "Load Sequentially from Dir") {
+                        console.log("[STATE] Sequential directory loading mode - showing media path and directory index widgets");
+
+                        // Show the original media_path widget
+                        if (originalMediaPathWidget) {
+                            originalMediaPathWidget.type = "text";
+                            originalMediaPathWidget.computeSize =
+                                originalMediaPathWidget.constructor.prototype.computeSize;
+                            this.mediaPathWidget = originalMediaPathWidget; // Reference the original
+                        }
+
+                        // Show the directory index widget for sequential loading
+                        if (originalDirectoryIndexWidget) {
+                            originalDirectoryIndexWidget.type = "number";
+                            originalDirectoryIndexWidget.computeSize =
+                                originalDirectoryIndexWidget.constructor.prototype.computeSize;
+                            console.log("[STATE] Showing directory index widget for sequential loading");
+                        }
+
+                        // Hide the seed widget (not needed for sequential loading)
+                        if (originalSeedWidget) {
+                            originalSeedWidget.type = "hidden";
+                            originalSeedWidget.computeSize = () => [0, -4];
+                            console.log("[STATE] Hiding seed widget for sequential mode");
+                        }
+
                         // Hide upload file widgets
                         if (originalUploadedImageWidget) {
                             originalUploadedImageWidget.type = "hidden";
@@ -200,6 +243,13 @@ app.registerExtension({
                             originalSeedWidget.type = "hidden";
                             originalSeedWidget.computeSize = () => [0, -4];
                             console.log("[STATE] Hiding seed widget for upload mode");
+                        }
+
+                        // Hide the directory index widget when not using sequential loading
+                        if (originalDirectoryIndexWidget) {
+                            originalDirectoryIndexWidget.type = "hidden";
+                            originalDirectoryIndexWidget.computeSize = () => [0, -4];
+                            console.log("[STATE] Hiding directory index widget for upload mode");
                         }
 
                         if (mediaType === "image") {
