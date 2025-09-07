@@ -317,6 +317,19 @@ app.registerExtension({
                 o.ui_state = {
                     media_source: this.mediaSourceWidget?.value || "Upload Media",
                     media_type: this.mediaTypeWidget?.value || "image",
+                    // Add uploaded file persistence
+                    uploaded_file_info: {
+                        image: {
+                            file: this.uploadedImageFile,
+                            subfolder: this.uploadedImageSubfolder,
+                            display: this.imageInfoWidget?.value
+                        },
+                        video: {
+                            file: this.uploadedVideoFile,
+                            subfolder: this.uploadedVideoSubfolder,
+                            display: this.videoInfoWidget?.value
+                        }
+                    }
                 };
 
                 console.log("[SERIALIZE] Saving UI state:", o.ui_state);
@@ -340,9 +353,57 @@ app.registerExtension({
                         this.mediaTypeWidget.value = o.ui_state.media_type;
                     }
 
+                    // Store upload file info for later restoration (after updateMediaWidgets clears state)
+                    this._pendingFileRestore = o.ui_state.uploaded_file_info;
+
                     // Update UI to match restored state
                     setTimeout(() => {
                         this.updateMediaWidgets();
+                        
+                        // Restore uploaded file information after updateMediaWidgets has run
+                        if (this._pendingFileRestore) {
+                            const fileInfo = this._pendingFileRestore;
+                            
+                            // Restore image upload state
+                            if (fileInfo.image?.file) {
+                                this.uploadedImageFile = fileInfo.image.file;
+                                this.uploadedImageSubfolder = fileInfo.image.subfolder;
+                                if (this.imageInfoWidget && fileInfo.image.display) {
+                                    this.imageInfoWidget.value = fileInfo.image.display;
+                                }
+                                
+                                // Update the hidden widget with file path
+                                const originalUploadedImageWidget = this.widgets.find(
+                                    (w) => w.name === "uploaded_image_file"
+                                );
+                                if (originalUploadedImageWidget) {
+                                    originalUploadedImageWidget.value = `${this.uploadedImageSubfolder}/${this.uploadedImageFile}`;
+                                    console.log(`[CONFIGURE] Restored image file: ${originalUploadedImageWidget.value}`);
+                                }
+                            }
+                            
+                            // Restore video upload state  
+                            if (fileInfo.video?.file) {
+                                this.uploadedVideoFile = fileInfo.video.file;
+                                this.uploadedVideoSubfolder = fileInfo.video.subfolder;
+                                if (this.videoInfoWidget && fileInfo.video.display) {
+                                    this.videoInfoWidget.value = fileInfo.video.display;
+                                }
+                                
+                                // Update the hidden widget with file path
+                                const originalUploadedVideoWidget = this.widgets.find(
+                                    (w) => w.name === "uploaded_video_file"
+                                );
+                                if (originalUploadedVideoWidget) {
+                                    originalUploadedVideoWidget.value = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
+                                    console.log(`[CONFIGURE] Restored video file: ${originalUploadedVideoWidget.value}`);
+                                }
+                            }
+                            
+                            // Clean up temporary storage
+                            delete this._pendingFileRestore;
+                        }
+                        
                         console.log("[CONFIGURE] UI state restored and widgets updated");
                     }, 0);
                 } else {
