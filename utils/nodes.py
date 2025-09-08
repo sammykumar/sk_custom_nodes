@@ -171,7 +171,7 @@ Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," e
                 if describe_clothing:
                     clothing_prompt = """
 CLOTHING (Fourth Paragraph)
-Describe all visible clothing and accessories with absolute certainty and definitiveness. Be specific: identify garment type with confidence, state definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Make decisive choices when multiple interpretations are possible - choose one specific description and state it as fact. Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes."""
+Describe all visible clothing and accessories with absolute certainty and definitiveness. Be specific: identify garment type with confidence, state definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Make decisive choices when multiple interpretations are possible - choose one specific description and state it as fact. Do not describe any text, typography, words, letters, logos, brand names, or written content visible on clothing or accessories. Exclude tattoos, glasses, and other prohibited attributes."""
                     paragraph_count = 4
                     critical_note = "CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line."
                 else:
@@ -413,7 +413,7 @@ Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, h
             if describe_clothing:
                 clothing_prompt = """
 2. CLOTHING (Second Paragraph)
-Describe all visible clothing and accessories with absolute certainty and definitiveness. Be specific: identify garment type with confidence, state definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Make decisive choices when multiple interpretations are possible - choose one specific description and state it as fact. Do not describe logos or brand names. Exclude tattoos, glasses, and other prohibited attributes."""
+Describe all visible clothing and accessories with absolute certainty and definitiveness. Be specific: identify garment type with confidence, state definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Make decisive choices when multiple interpretations are possible - choose one specific description and state it as fact. Do not describe any text, typography, words, letters, logos, brand names, or written content visible on clothing or accessories. Exclude tattoos, glasses, and other prohibited attributes."""
                 scene_num = "3"
                 movement_num = "4"
                 cinematic_num = "5"
