@@ -8,12 +8,10 @@ app.registerExtension({
     name: "sk_custom_nodes.gemini_widgets",
 
     async beforeRegisterNodeDef(nodeType, nodeData, app) {
-
-
         // Handle GeminiUtilOptions node
         if (nodeData.name === "GeminiUtilOptions") {
             console.log("Registering GeminiUtilOptions node");
-            
+
             // This node doesn't need special widgets - it just provides configuration
             // The existing ComfyUI widgets are sufficient for this node
         }
@@ -59,6 +57,9 @@ app.registerExtension({
 
                 // Method to clear all media state (images, videos, previews, file data)
                 this.clearAllMediaState = function () {
+                    console.log("[DEBUG] clearAllMediaState called");
+                    console.log("[DEBUG] _pendingFileRestore exists:", !!this._pendingFileRestore);
+
                     // Clear video state and preview
                     this.clearVideoPreview();
                     this.uploadedVideoFile = null;
@@ -69,39 +70,73 @@ app.registerExtension({
                     this.uploadedImageSubfolder = null;
 
                     // Reset widget values to defaults (only upload-related widgets)
-                    if (this.videoInfoWidget) {
+                    // FIXED: Only clear if widgets exist and we're not in restoration mode
+                    if (this.videoInfoWidget && !this._pendingFileRestore) {
+                        console.log("[DEBUG] Clearing videoInfoWidget");
                         this.videoInfoWidget.value = "No video selected";
+                    } else if (this.videoInfoWidget && this._pendingFileRestore) {
+                        console.log(
+                            "[DEBUG] Skipping videoInfoWidget clear due to pending restore"
+                        );
                     }
-                    if (this.imageInfoWidget) {
+
+                    if (this.imageInfoWidget && !this._pendingFileRestore) {
+                        console.log("[DEBUG] Clearing imageInfoWidget");
                         this.imageInfoWidget.value = "No image selected";
+                    } else if (this.imageInfoWidget && this._pendingFileRestore) {
+                        console.log(
+                            "[DEBUG] Skipping imageInfoWidget clear due to pending restore"
+                        );
                     }
+
                     // Don't clear media_path as it's not related to upload state
                     // if (this.mediaPathWidget) {
                     //     this.mediaPathWidget.value = "";
                     // }
 
                     // Clear hidden widgets that store file paths for Python node
-                    if (this.videoFileWidget) {
+                    if (this.videoFileWidget && !this._pendingFileRestore) {
+                        console.log("[DEBUG] Clearing videoFileWidget");
                         this.videoFileWidget.value = "";
+                    } else if (this.videoFileWidget && this._pendingFileRestore) {
+                        console.log(
+                            "[DEBUG] Skipping videoFileWidget clear due to pending restore"
+                        );
                     }
-                    if (this.imageFileWidget) {
+
+                    if (this.imageFileWidget && !this._pendingFileRestore) {
+                        console.log("[DEBUG] Clearing imageFileWidget");
                         this.imageFileWidget.value = "";
+                    } else if (this.imageFileWidget && this._pendingFileRestore) {
+                        console.log(
+                            "[DEBUG] Skipping imageFileWidget clear due to pending restore"
+                        );
                     }
 
-                    // Also clear the original input widgets
-                    const originalUploadedImageWidget = this.widgets.find(
-                        (w) => w.name === "uploaded_image_file"
-                    );
-                    const originalUploadedVideoWidget = this.widgets.find(
-                        (w) => w.name === "uploaded_video_file"
-                    );
+                    // Also clear the original input widgets if not restoring
+                    if (!this._pendingFileRestore) {
+                        const originalUploadedImageWidget = this.widgets.find(
+                            (w) => w.name === "uploaded_image_file"
+                        );
+                        const originalUploadedVideoWidget = this.widgets.find(
+                            (w) => w.name === "uploaded_video_file"
+                        );
 
-                    if (originalUploadedImageWidget) {
-                        originalUploadedImageWidget.value = "";
+                        if (originalUploadedImageWidget) {
+                            console.log("[DEBUG] Clearing uploaded_image_file widget");
+                            originalUploadedImageWidget.value = "";
+                        }
+                        if (originalUploadedVideoWidget) {
+                            console.log("[DEBUG] Clearing uploaded_video_file widget");
+                            originalUploadedVideoWidget.value = "";
+                        }
+                    } else {
+                        console.log(
+                            "[DEBUG] Skipping original widget clear due to pending restore"
+                        );
                     }
-                    if (originalUploadedVideoWidget) {
-                        originalUploadedVideoWidget.value = "";
-                    }
+
+                    console.log("[DEBUG] clearAllMediaState completed");
                 };
 
                 // Function to safely remove a widget
@@ -122,6 +157,7 @@ app.registerExtension({
                     console.log(
                         `[STATE] Updating widgets: mediaSource=${mediaSource}, mediaType=${mediaType}`
                     );
+                    console.log("[DEBUG] _pendingFileRestore exists:", !!this._pendingFileRestore);
 
                     // Find the original input widgets that we want to control
                     const originalMediaPathWidget = this.widgets.find(
@@ -135,7 +171,22 @@ app.registerExtension({
                     );
                     const originalSeedWidget = this.widgets.find((w) => w.name === "seed");
 
+                    console.log("[DEBUG] Found widgets:");
+                    console.log("  originalMediaPathWidget:", !!originalMediaPathWidget);
+                    console.log(
+                        "  originalUploadedImageWidget:",
+                        !!originalUploadedImageWidget,
+                        originalUploadedImageWidget?.value
+                    );
+                    console.log(
+                        "  originalUploadedVideoWidget:",
+                        !!originalUploadedVideoWidget,
+                        originalUploadedVideoWidget?.value
+                    );
+                    console.log("  originalSeedWidget:", !!originalSeedWidget);
+
                     // Clear all previous media state when switching configurations
+                    console.log("[STATE] About to call clearAllMediaState");
                     this.clearAllMediaState();
 
                     // Remove all upload-related widgets first to ensure clean state
@@ -148,6 +199,7 @@ app.registerExtension({
                     // this.removeWidgetSafely(this.mediaPathWidget);
 
                     // Reset widget references
+                    console.log("[STATE] Resetting widget references");
                     this.imageUploadWidget = null;
                     this.imageInfoWidget = null;
                     this.videoUploadWidget = null;
@@ -312,6 +364,14 @@ app.registerExtension({
             nodeType.prototype.onSerialize = function (o) {
                 const result = onSerialize?.apply(this, arguments);
 
+                console.log("[DEBUG] onSerialize called - collecting state data");
+                console.log("[DEBUG] uploadedVideoFile:", this.uploadedVideoFile);
+                console.log("[DEBUG] uploadedVideoSubfolder:", this.uploadedVideoSubfolder);
+                console.log("[DEBUG] videoInfoWidget value:", this.videoInfoWidget?.value);
+                console.log("[DEBUG] uploadedImageFile:", this.uploadedImageFile);
+                console.log("[DEBUG] uploadedImageSubfolder:", this.uploadedImageSubfolder);
+                console.log("[DEBUG] imageInfoWidget value:", this.imageInfoWidget?.value);
+
                 // Save current widget state for persistence
                 o.widgets_values = o.widgets_values || [];
                 o.ui_state = {
@@ -322,17 +382,29 @@ app.registerExtension({
                         image: {
                             file: this.uploadedImageFile,
                             subfolder: this.uploadedImageSubfolder,
-                            display: this.imageInfoWidget?.value
+                            display: this.imageInfoWidget?.value,
                         },
                         video: {
                             file: this.uploadedVideoFile,
                             subfolder: this.uploadedVideoSubfolder,
-                            display: this.videoInfoWidget?.value
-                        }
-                    }
+                            display: this.videoInfoWidget?.value,
+                        },
+                    },
                 };
 
-                console.log("[SERIALIZE] Saving UI state:", o.ui_state);
+                console.log("[SERIALIZE] Saving UI state:", JSON.stringify(o.ui_state, null, 2));
+
+                // Also check the actual widget values in widgets_values array
+                console.log("[DEBUG] widgets_values array:", o.widgets_values);
+
+                // Check if any widgets have video file info
+                if (this.widgets) {
+                    const videoWidget = this.widgets.find((w) => w.name === "uploaded_video_file");
+                    const imageWidget = this.widgets.find((w) => w.name === "uploaded_image_file");
+                    console.log("[DEBUG] uploaded_video_file widget value:", videoWidget?.value);
+                    console.log("[DEBUG] uploaded_image_file widget value:", imageWidget?.value);
+                }
+
                 return result;
             };
 
@@ -341,69 +413,170 @@ app.registerExtension({
             nodeType.prototype.onConfigure = function (o) {
                 const result = onConfigure?.apply(this, arguments);
 
+                console.log("[DEBUG] onConfigure called with data:", o);
+                console.log("[DEBUG] ui_state found:", !!o.ui_state);
+                console.log("[DEBUG] widgets_values found:", !!o.widgets_values);
+
                 // Restore UI state after widgets are created
                 if (o.ui_state) {
-                    console.log("[CONFIGURE] Restoring UI state:", o.ui_state);
+                    console.log(
+                        "[CONFIGURE] Restoring UI state:",
+                        JSON.stringify(o.ui_state, null, 2)
+                    );
 
                     // Set widget values if they exist
                     if (this.mediaSourceWidget && o.ui_state.media_source) {
+                        console.log(
+                            "[DEBUG] Setting mediaSourceWidget to:",
+                            o.ui_state.media_source
+                        );
                         this.mediaSourceWidget.value = o.ui_state.media_source;
                     }
                     if (this.mediaTypeWidget && o.ui_state.media_type) {
+                        console.log("[DEBUG] Setting mediaTypeWidget to:", o.ui_state.media_type);
                         this.mediaTypeWidget.value = o.ui_state.media_type;
                     }
 
                     // Store upload file info for later restoration (after updateMediaWidgets clears state)
                     this._pendingFileRestore = o.ui_state.uploaded_file_info;
+                    console.log(
+                        "[DEBUG] Stored _pendingFileRestore:",
+                        JSON.stringify(this._pendingFileRestore, null, 2)
+                    );
 
                     // Update UI to match restored state
                     setTimeout(() => {
+                        console.log("[DEBUG] First timeout - calling updateMediaWidgets");
                         this.updateMediaWidgets();
-                        
-                        // Restore uploaded file information after updateMediaWidgets has run
-                        if (this._pendingFileRestore) {
-                            const fileInfo = this._pendingFileRestore;
-                            
-                            // Restore image upload state
-                            if (fileInfo.image?.file) {
-                                this.uploadedImageFile = fileInfo.image.file;
-                                this.uploadedImageSubfolder = fileInfo.image.subfolder;
-                                if (this.imageInfoWidget && fileInfo.image.display) {
-                                    this.imageInfoWidget.value = fileInfo.image.display;
-                                }
-                                
-                                // Update the hidden widget with file path
-                                const originalUploadedImageWidget = this.widgets.find(
-                                    (w) => w.name === "uploaded_image_file"
+
+                        // FIXED: Restore uploaded file information after updateMediaWidgets has run
+                        // Need a second timeout to ensure widgets are fully created
+                        setTimeout(() => {
+                            console.log("[DEBUG] Second timeout - starting file restoration");
+                            console.log(
+                                "[DEBUG] _pendingFileRestore still exists:",
+                                !!this._pendingFileRestore
+                            );
+
+                            if (this._pendingFileRestore) {
+                                const fileInfo = this._pendingFileRestore;
+                                console.log(
+                                    "[DEBUG] Processing fileInfo:",
+                                    JSON.stringify(fileInfo, null, 2)
                                 );
-                                if (originalUploadedImageWidget) {
-                                    originalUploadedImageWidget.value = `${this.uploadedImageSubfolder}/${this.uploadedImageFile}`;
-                                    console.log(`[CONFIGURE] Restored image file: ${originalUploadedImageWidget.value}`);
-                                }
-                            }
-                            
-                            // Restore video upload state  
-                            if (fileInfo.video?.file) {
-                                this.uploadedVideoFile = fileInfo.video.file;
-                                this.uploadedVideoSubfolder = fileInfo.video.subfolder;
-                                if (this.videoInfoWidget && fileInfo.video.display) {
-                                    this.videoInfoWidget.value = fileInfo.video.display;
-                                }
-                                
-                                // Update the hidden widget with file path
-                                const originalUploadedVideoWidget = this.widgets.find(
-                                    (w) => w.name === "uploaded_video_file"
+
+                                // Debug: List all current widgets
+                                console.log(
+                                    "[DEBUG] Current widgets:",
+                                    this.widgets.map((w) => ({
+                                        name: w.name,
+                                        type: w.type,
+                                        value: w.value,
+                                    }))
                                 );
-                                if (originalUploadedVideoWidget) {
-                                    originalUploadedVideoWidget.value = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
-                                    console.log(`[CONFIGURE] Restored video file: ${originalUploadedVideoWidget.value}`);
+
+                                // Restore image upload state
+                                if (fileInfo.image?.file) {
+                                    console.log("[DEBUG] Restoring image state:", fileInfo.image);
+                                    this.uploadedImageFile = fileInfo.image.file;
+                                    this.uploadedImageSubfolder = fileInfo.image.subfolder;
+                                    if (this.imageInfoWidget && fileInfo.image.display) {
+                                        this.imageInfoWidget.value = fileInfo.image.display;
+                                        console.log(
+                                            "[DEBUG] Updated imageInfoWidget:",
+                                            this.imageInfoWidget.value
+                                        );
+                                    }
+
+                                    // Update the hidden widget with file path
+                                    const originalUploadedImageWidget = this.widgets.find(
+                                        (w) => w.name === "uploaded_image_file"
+                                    );
+                                    if (originalUploadedImageWidget) {
+                                        originalUploadedImageWidget.value = `${this.uploadedImageSubfolder}/${this.uploadedImageFile}`;
+                                        console.log(
+                                            `[CONFIGURE] Restored image file: ${originalUploadedImageWidget.value}`
+                                        );
+                                    } else {
+                                        console.log(
+                                            "[DEBUG] WARNING: uploaded_image_file widget not found!"
+                                        );
+                                    }
                                 }
+
+                                // FIXED: Restore video upload state with proper widget handling
+                                if (fileInfo.video?.file) {
+                                    console.log("[DEBUG] Restoring video state:", fileInfo.video);
+                                    this.uploadedVideoFile = fileInfo.video.file;
+                                    this.uploadedVideoSubfolder = fileInfo.video.subfolder;
+
+                                    console.log(
+                                        "[DEBUG] Set uploadedVideoFile:",
+                                        this.uploadedVideoFile
+                                    );
+                                    console.log(
+                                        "[DEBUG] Set uploadedVideoSubfolder:",
+                                        this.uploadedVideoSubfolder
+                                    );
+
+                                    // Ensure video info widget exists and update it
+                                    if (this.videoInfoWidget) {
+                                        if (fileInfo.video.display) {
+                                            this.videoInfoWidget.value = fileInfo.video.display;
+                                        } else {
+                                            // Fallback display if display info is missing
+                                            this.videoInfoWidget.value = `${this.uploadedVideoFile} (restored)`;
+                                        }
+                                        console.log(
+                                            `[CONFIGURE] Restored video info widget: ${this.videoInfoWidget.value}`
+                                        );
+                                    } else {
+                                        console.log("[DEBUG] WARNING: videoInfoWidget not found!");
+                                    }
+
+                                    // Update the hidden widget with file path
+                                    const originalUploadedVideoWidget = this.widgets.find(
+                                        (w) => w.name === "uploaded_video_file"
+                                    );
+                                    if (originalUploadedVideoWidget) {
+                                        const filePath = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
+                                        originalUploadedVideoWidget.value = filePath;
+                                        console.log(
+                                            `[CONFIGURE] Restored video file widget: ${originalUploadedVideoWidget.value}`
+                                        );
+                                    } else {
+                                        console.log(
+                                            "[DEBUG] WARNING: uploaded_video_file widget not found!"
+                                        );
+                                    }
+
+                                    // Also ensure the videoFileWidget is updated if it exists
+                                    if (this.videoFileWidget) {
+                                        this.videoFileWidget.value = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
+                                        console.log(
+                                            `[CONFIGURE] Updated videoFileWidget: ${this.videoFileWidget.value}`
+                                        );
+                                    } else {
+                                        console.log(
+                                            "[DEBUG] videoFileWidget not found (this might be OK)"
+                                        );
+                                    }
+                                } else {
+                                    console.log("[DEBUG] No video file info to restore");
+                                }
+
+                                // Clean up temporary storage
+                                delete this._pendingFileRestore;
+                                console.log("[DEBUG] Cleaned up _pendingFileRestore");
+                            } else {
+                                console.log(
+                                    "[DEBUG] No _pendingFileRestore found in second timeout"
+                                );
                             }
-                            
-                            // Clean up temporary storage
-                            delete this._pendingFileRestore;
-                        }
-                        
+
+                            console.log("[CONFIGURE] File state restoration complete");
+                        }, 50); // Small delay to ensure widget creation is complete
+
                         console.log("[CONFIGURE] UI state restored and widgets updated");
                     }, 0);
                 } else {
@@ -616,6 +789,8 @@ app.registerExtension({
 
                         const uploadResult = await uploadResponse.json();
 
+                        console.log("[DEBUG] Video upload successful, result:", uploadResult);
+
                         // Update the video info widget
                         this.videoInfoWidget.value = `${file.name} (${(
                             file.size /
@@ -627,6 +802,13 @@ app.registerExtension({
                         this.uploadedVideoFile = uploadResult.name;
                         this.uploadedVideoSubfolder = uploadResult.subfolder || "gemini_videos";
 
+                        console.log("[DEBUG] Set uploadedVideoFile to:", this.uploadedVideoFile);
+                        console.log(
+                            "[DEBUG] Set uploadedVideoSubfolder to:",
+                            this.uploadedVideoSubfolder
+                        );
+                        console.log("[DEBUG] Set videoInfoWidget to:", this.videoInfoWidget.value);
+
                         // Use the original uploaded_video_file widget to store the file path
                         const originalUploadedVideoWidget = this.widgets.find(
                             (w) => w.name === "uploaded_video_file"
@@ -637,6 +819,9 @@ app.registerExtension({
                                 `[UPLOAD] Updated original uploaded_video_file widget: ${originalUploadedVideoWidget.value}`
                             );
                         } else {
+                            console.log(
+                                "[DEBUG] WARNING: uploaded_video_file widget not found during upload!"
+                            );
                             // Fallback: create a hidden widget if the original doesn't exist
                             if (!this.videoFileWidget) {
                                 this.videoFileWidget = this.addWidget(
@@ -648,9 +833,20 @@ app.registerExtension({
                                 );
                                 this.videoFileWidget.serialize = true;
                                 this.videoFileWidget.type = "hidden";
+                                console.log("[DEBUG] Created fallback videoFileWidget");
                             }
                             this.videoFileWidget.value = `${this.uploadedVideoSubfolder}/${this.uploadedVideoFile}`;
+                            console.log(
+                                "[DEBUG] Updated fallback videoFileWidget:",
+                                this.videoFileWidget.value
+                            );
                         }
+
+                        // Debug: Show all widget states after upload
+                        console.log("[DEBUG] All widgets after upload:");
+                        this.widgets.forEach((w) => {
+                            console.log(`  ${w.name}: ${w.value} (type: ${w.type})`);
+                        });
 
                         // Show success notification
                         app.extensionManager?.toast?.add({
@@ -692,19 +888,41 @@ app.registerExtension({
                 // This is just a placeholder method
                 console.log("Video preview cleared for media node");
             };
-
         }
     },
 
     // Hook to handle workflow loading
     loadedGraphNode(node, app) {
         if (node.comfyClass === "GeminiUtilMediaDescribe") {
-            // Ensure UI state is applied when workflow is loaded
-            if (node.updateMediaWidgets) {
+            console.log("[LOADED] loadedGraphNode called for GeminiUtilMediaDescribe");
+
+            // Check if this node has saved UI state with uploaded file data
+            const hasSavedVideoData = node.ui_state?.uploaded_file_info?.video?.file;
+            const hasSavedImageData = node.ui_state?.uploaded_file_info?.image?.file;
+
+            console.log(
+                "[LOADED] hasSavedVideoData:",
+                !!hasSavedVideoData,
+                "hasSavedImageData:",
+                !!hasSavedImageData
+            );
+            console.log("[LOADED] Saved video file:", hasSavedVideoData);
+            console.log("[LOADED] Saved image file:", hasSavedImageData);
+
+            // Only call updateMediaWidgets if we don't have any saved uploaded file data
+            // If we have saved data, onConfigure will handle the restoration
+            if (!hasSavedVideoData && !hasSavedImageData && node.updateMediaWidgets) {
+                console.log(
+                    "[LOADED] No saved uploaded file data found, applying default UI state"
+                );
                 setTimeout(() => {
                     node.updateMediaWidgets();
-                    console.log("[LOADED] Applied UI state for loaded workflow node");
+                    console.log("[LOADED] Applied default UI state for loaded workflow node");
                 }, 100); // Small delay to ensure all widgets are properly initialized
+            } else {
+                console.log(
+                    "[LOADED] Saved uploaded file data found, skipping updateMediaWidgets to preserve onConfigure restoration"
+                );
             }
         }
     },
