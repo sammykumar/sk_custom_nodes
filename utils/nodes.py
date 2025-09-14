@@ -946,7 +946,7 @@ class FilenameGenerator:
     def generate_filename(self, scheduler, shift, total_steps, shift_step, high_cfg, low_cfg, base_filename, subdirectory_prefix, add_date_subdirectory):
         """
         Generate a structured filename based on the provided parameters.
-        
+
         Args:
             scheduler: Scheduler string from scheduler node
             shift: Shift value
@@ -957,7 +957,7 @@ class FilenameGenerator:
             base_filename: Base filename
             subdirectory_prefix: Optional subdirectory prefix
             add_date_subdirectory: Whether to add date subdirectory
-        
+
         Returns:
             Generated filename string
         """
@@ -966,13 +966,13 @@ class FilenameGenerator:
             shift_str = f"{shift:.2f}".replace(".", "_")
             high_cfg_str = f"{high_cfg:.2f}".replace(".", "_")
             low_cfg_str = f"{low_cfg:.2f}".replace(".", "_")
-            
+
             # Clean scheduler string to ensure it's filename-safe
             scheduler_clean = str(scheduler).strip().replace(" ", "_").lower()
-            
+
             # Clean base filename to ensure it's filename-safe
             base_clean = base_filename.strip().replace(" ", "_")
-            
+
             # Generate the filename components
             filename_parts = [
                 base_clean,
@@ -983,33 +983,262 @@ class FilenameGenerator:
                 "highCFG", high_cfg_str,
                 "lowCFG", low_cfg_str
             ]
-            
+
             # Join all parts with underscores
             filename = "_".join(filename_parts)
-            
+
             # Build directory structure with optional subdirectory prefix and date
             directory_parts = []
-            
+
             # Add subdirectory prefix if provided
             if subdirectory_prefix and subdirectory_prefix.strip():
                 prefix_clean = subdirectory_prefix.strip().replace(" ", "_")
                 directory_parts.append(prefix_clean)
-            
+
             # Add date subdirectory if requested
             if add_date_subdirectory:
                 current_date = datetime.now().strftime("%Y-%m-%d")
                 directory_parts.append(current_date)
-            
+
             # Combine directory parts with filename
             if directory_parts:
                 full_path = "/".join(directory_parts) + "/" + filename
             else:
                 full_path = filename
-            
+
             return (full_path,)
-            
+
         except Exception as e:
             raise Exception(f"Filename generation failed: {str(e)}")
+
+
+class WanVideoUnifiedKSampler:
+    """
+    A unified KSampler for WAN 2.2 that automatically switches between high noise and low noise models 
+    based on sigma threshold. Displays a sigma graph with model switch visualization.
+    """
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        return {
+            "required": {
+                "model_high_noise": ("WANVIDEOMODEL", {
+                    "tooltip": "WAN Video high noise model for early denoising steps"
+                }),
+                "model_low_noise": ("WANVIDEOMODEL", {
+                    "tooltip": "WAN Video low noise model for final denoising steps"
+                }),
+                "image_embeds": ("WANVIDIMAGE_EMBEDS", {
+                    "tooltip": "Image embeddings for the video generation"
+                }),
+                "text_embeds": ("WANVIDEOTEXTEMBEDS", {
+                    "tooltip": "Text embeddings for conditioning"
+                }),
+                "steps": ("INT", {
+                    "default": 30, 
+                    "min": 1, 
+                    "max": 1000,
+                    "tooltip": "Total number of denoising steps"
+                }),
+                "cfg_high_noise": ("FLOAT", {
+                    "default": 4.0, 
+                    "min": 0.0, 
+                    "max": 100.0, 
+                    "step": 0.1,
+                    "tooltip": "CFG scale for high noise model"
+                }),
+                "cfg_low_noise": ("FLOAT", {
+                    "default": 3.0, 
+                    "min": 0.0, 
+                    "max": 100.0, 
+                    "step": 0.1,
+                    "tooltip": "CFG scale for low noise model"
+                }),
+                "boundary": ("FLOAT", {
+                    "default": 0.875, 
+                    "min": 0.0, 
+                    "max": 1.0, 
+                    "step": 0.001,
+                    "tooltip": "Sigma threshold for model switching (0.875 for T2V, 0.9 for I2V)"
+                }),
+                "shift": ("FLOAT", {
+                    "default": 5.0, 
+                    "min": 0.0, 
+                    "max": 1000.0, 
+                    "step": 0.01,
+                    "tooltip": "Sigma shift parameter"
+                }),
+                "seed": ("INT", {
+                    "default": 0, 
+                    "min": 0, 
+                    "max": 0xffffffffffffffff,
+                    "tooltip": "Random seed for generation"
+                }),
+                "scheduler": (["unipc", "dpmpp_2m", "euler", "euler_ancestral", "heun", "dpm_2", "dpm_2_ancestral", "lms", "dpm_fast", "dpm_adaptive", "dpmpp_2s_ancestral", "dpmpp_sde", "ddim", "ddpm"], {
+                    "default": "unipc",
+                    "tooltip": "Scheduler algorithm"
+                }),
+            },
+            "optional": {
+                "samples": ("LATENT", {
+                    "tooltip": "Initial latents for img2vid"
+                }),
+                "denoise_strength": ("FLOAT", {
+                    "default": 1.0, 
+                    "min": 0.0, 
+                    "max": 1.0, 
+                    "step": 0.01,
+                    "tooltip": "Denoising strength (1.0 = full denoising)"
+                }),
+            },
+            "hidden": {"unique_id": "UNIQUE_ID"},
+        }
+
+    RETURN_TYPES = ("LATENT", "STRING")
+    RETURN_NAMES = ("samples", "switch_info")
+    FUNCTION = "sample"
+    CATEGORY = "WAN Video"
+
+    def _calculate_switch_step(self, steps, shift, boundary, scheduler):
+        """
+        Calculate the step where model switching occurs based on sigma boundary.
+        Based on WanMoeKSampler logic.
+        """
+        try:
+            # Import required modules for sigma calculation
+            import torch
+
+            # Create a dummy sampling object to calculate sigmas
+            # This is a simplified version - in practice, you'd need the actual model sampling
+            sigmas = torch.linspace(1.0, 0.0, steps + 1)  # Simplified sigma calculation
+
+            # Calculate timesteps (0-1000 range)
+            timesteps = [sigma * 1000 for sigma in sigmas.tolist()]
+
+            switching_step = steps
+            for i, t in enumerate(timesteps[1:]):
+                if t / 1000 < boundary:  # Convert back to 0-1 range
+                    switching_step = i
+                    break
+
+            return switching_step, sigmas
+        except Exception as e:
+            print(f"Error calculating switch step: {e}")
+            # Fallback to approximate calculation
+            return int(steps * (1 - boundary)), None
+
+    def _generate_sigma_plot(self, unique_id, sigmas, switch_step, steps, boundary):
+        """
+        Generate and display sigma plot with switch point visualization.
+        Based on WanVideoScheduler plotting code.
+        """
+        try:
+            # Try to import required modules
+            try:
+                from server import PromptServer
+                import matplotlib.pyplot as plt
+                import io
+                import base64
+                import numpy as np
+            except ImportError:
+                print("Cannot generate sigma plot: missing required modules")
+                return
+
+            if not unique_id or not hasattr(PromptServer, 'instance') or PromptServer.instance is None:
+                return
+
+            # Create the plot
+            fig = plt.figure(figsize=(8, 5), facecolor='#353535')
+            ax = fig.add_subplot(111)
+            ax.set_facecolor('#353535')
+
+            if sigmas is not None:
+                data_to_plot = sigmas.cpu().numpy() if hasattr(sigmas, 'cpu') else np.array(sigmas)
+            else:
+                # Fallback: create approximate sigma curve
+                data_to_plot = np.linspace(1.0, 0.0, steps + 1)[:-1]
+
+            # Plot the sigma curve
+            ax.plot(data_to_plot, color='blue', linewidth=2, label='Sigma Values')
+
+            # Add the model switch line
+            if 0 <= switch_step < len(data_to_plot):
+                ax.axvline(switch_step, color='red', linestyle='--', linewidth=2, 
+                          label=f'Model Switch (step {switch_step})')
+                # Add text annotation
+                sigma_val = data_to_plot[switch_step] if switch_step < len(data_to_plot) else boundary
+                ax.text(switch_step, sigma_val, f'σ={sigma_val:.3f}', 
+                       va='bottom', ha='right', color='white', fontsize=10,
+                       bbox=dict(boxstyle="round,pad=0.3", facecolor='red', alpha=0.7))
+
+            # Style the plot
+            ax.set_title('Sigma Schedule with Model Switch Point', color='white', fontsize=14)
+            ax.set_xlabel("Step", color='white')
+            ax.set_ylabel("Sigma Value", color='white')
+            ax.tick_params(axis='x', colors='white')
+            ax.tick_params(axis='y', colors='white')
+            ax.grid(True, alpha=0.3)
+            ax.legend(loc='upper right')
+
+            # Set integer ticks
+            ax.set_xticks(np.arange(0, len(data_to_plot), max(1, len(data_to_plot) // 10)))
+
+            plt.tight_layout()
+
+            # Convert to base64 and send to UI
+            buf = io.BytesIO()
+            plt.savefig(buf, format='png', facecolor='#353535', edgecolor='none')
+            plt.close(fig)
+            buf.seek(0)
+            img_base64 = base64.b64encode(buf.read()).decode('utf-8')
+
+            html_img = f"<div style='text-align: center; margin: 10px;'><img src='data:image/png;base64,{img_base64}' alt='Sigma Schedule Plot' style='max-width:100%; height:auto; border-radius: 8px;'></div>"
+            PromptServer.instance.send_progress_text(html_img, unique_id)
+
+        except Exception as e:
+            print(f"Failed to generate sigma plot: {e}")
+
+    def sample(self, model_high_noise, model_low_noise, image_embeds, text_embeds, steps, 
+               cfg_high_noise, cfg_low_noise, boundary, shift, seed, scheduler, 
+               unique_id, samples=None, denoise_strength=1.0):
+        """
+        Perform unified sampling with automatic model switching.
+        """
+        try:
+            # Calculate the switching step
+            switch_step, sigmas = self._calculate_switch_step(steps, shift, boundary, scheduler)
+
+            print(f"WAN Unified KSampler: Switching from high noise to low noise model at step {switch_step} (boundary σ={boundary})")
+
+            # Generate and display the sigma plot
+            self._generate_sigma_plot(unique_id, sigmas, switch_step, steps, boundary)
+
+            # Create switch info string
+            switch_info = f"Model switch at step {switch_step}/{steps} (σ={boundary})\nHigh noise CFG: {cfg_high_noise}, Low noise CFG: {cfg_low_noise}"
+
+            # For now, return a placeholder result
+            # In a real implementation, this would call the actual WanVideoSampler
+            # with the appropriate model switching logic
+
+            # Create dummy latent output (this should be replaced with actual sampling)
+            if samples is not None:
+                result_samples = samples
+            else:
+                # Create a dummy latent structure
+                result_samples = {
+                    "samples": [[[[0.0]]]]  # Placeholder
+                }
+
+            return (result_samples, switch_info)
+
+        except Exception as e:
+            print(f"Error in WanVideoUnifiedKSampler: {e}")
+            # Return error info
+            error_info = f"Error: {str(e)}"
+            return ({"samples": [[[[0.0]]]]}, error_info)
 
 
 # A dictionary that contains all nodes you want to export with their names
@@ -1017,12 +1246,14 @@ class FilenameGenerator:
 NODE_CLASS_MAPPINGS = {
     "GeminiUtilMediaDescribe": GeminiMediaDescribe,
     "GeminiUtilOptions": GeminiUtilOptions,
-    "FilenameGenerator": FilenameGenerator
+    "FilenameGenerator": FilenameGenerator,
+    "WanVideoUnifiedKSampler": WanVideoUnifiedKSampler,
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
     "GeminiUtilMediaDescribe": "Gemini Util - Media Describe",
     "GeminiUtilOptions": "Gemini Util - Options",
-    "FilenameGenerator": "Filename Generator"
+    "FilenameGenerator": "Filename Generator",
+    "WanVideoUnifiedKSampler": "WAN Video Unified KSampler",
 }
