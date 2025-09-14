@@ -7,6 +7,7 @@ import subprocess
 import numpy as np
 from PIL import Image
 import io
+from datetime import datetime
 from .cache import get_cache, get_file_media_identifier, get_tensor_media_identifier
 
 
@@ -869,15 +870,159 @@ Directory scan results:
             raise Exception(f"Media analysis failed: {str(e)}")
 
 
+class FilenameGenerator:
+    """
+    A ComfyUI custom node that generates structured filenames based on workflow parameters.
+    Creates filenames with optional date subdirectory and all parameter values included.
+    """
+
+    def __init__(self):
+        pass
+
+    @classmethod
+    def INPUT_TYPES(s):
+        """
+        Return a dictionary which contains config for all input fields.
+        """
+        return {
+            "required": {
+                "scheduler": ("STRING", {
+                    "forceInput": True,
+                    "tooltip": "Scheduler input from WanVideo Scheduler Selector or other scheduler nodes"
+                }),
+                "shift": ("FLOAT", {
+                    "default": 12.0,
+                    "min": 0.0,
+                    "max": 100.0,
+                    "step": 0.01,
+                    "tooltip": "Shift value"
+                }),
+                "total_steps": ("INT", {
+                    "default": 40,
+                    "min": 1,
+                    "max": 10000,
+                    "tooltip": "Total number of steps"
+                }),
+                "shift_step": ("INT", {
+                    "default": 25,
+                    "min": 1,
+                    "max": 10000,
+                    "tooltip": "Shift step value"
+                }),
+                "high_cfg": ("FLOAT", {
+                    "default": 3.0,
+                    "min": 0.0,
+                    "max": 30.0,
+                    "step": 0.01,
+                    "tooltip": "High CFG value"
+                }),
+                "low_cfg": ("FLOAT", {
+                    "default": 4.0,
+                    "min": 0.0,
+                    "max": 30.0,
+                    "step": 0.01,
+                    "tooltip": "Low CFG value"
+                }),
+                "base_filename": ("STRING", {
+                    "default": "base",
+                    "tooltip": "Base filename (without extension)"
+                }),
+                "subdirectory_prefix": ("STRING", {
+                    "default": "",
+                    "tooltip": "Optional subdirectory prefix (e.g., 'project_name'). Will be added before date subdirectory."
+                }),
+                "add_date_subdirectory": ("BOOLEAN", {
+                    "default": True,
+                    "tooltip": "Add date subdirectory (YYYY-MM-DD format)"
+                }),
+            }
+        }
+
+    RETURN_TYPES = ("STRING",)
+    RETURN_NAMES = ("filename",)
+    FUNCTION = "generate_filename"
+    CATEGORY = "Utils"
+
+    def generate_filename(self, scheduler, shift, total_steps, shift_step, high_cfg, low_cfg, base_filename, subdirectory_prefix, add_date_subdirectory):
+        """
+        Generate a structured filename based on the provided parameters.
+        
+        Args:
+            scheduler: Scheduler string from scheduler node
+            shift: Shift value
+            total_steps: Total number of steps
+            shift_step: Shift step value
+            high_cfg: High CFG value
+            low_cfg: Low CFG value
+            base_filename: Base filename
+            subdirectory_prefix: Optional subdirectory prefix
+            add_date_subdirectory: Whether to add date subdirectory
+        
+        Returns:
+            Generated filename string
+        """
+        try:
+            # Format float values to replace decimal points with underscores
+            shift_str = f"{shift:.2f}".replace(".", "_")
+            high_cfg_str = f"{high_cfg:.2f}".replace(".", "_")
+            low_cfg_str = f"{low_cfg:.2f}".replace(".", "_")
+            
+            # Clean scheduler string to ensure it's filename-safe
+            scheduler_clean = str(scheduler).strip().replace(" ", "_").lower()
+            
+            # Clean base filename to ensure it's filename-safe
+            base_clean = base_filename.strip().replace(" ", "_")
+            
+            # Generate the filename components
+            filename_parts = [
+                base_clean,
+                "scheduler", scheduler_clean,
+                "shift", shift_str,
+                "total_steps", str(total_steps),
+                "shift_step", str(shift_step),
+                "highCFG", high_cfg_str,
+                "lowCFG", low_cfg_str
+            ]
+            
+            # Join all parts with underscores
+            filename = "_".join(filename_parts)
+            
+            # Build directory structure with optional subdirectory prefix and date
+            directory_parts = []
+            
+            # Add subdirectory prefix if provided
+            if subdirectory_prefix and subdirectory_prefix.strip():
+                prefix_clean = subdirectory_prefix.strip().replace(" ", "_")
+                directory_parts.append(prefix_clean)
+            
+            # Add date subdirectory if requested
+            if add_date_subdirectory:
+                current_date = datetime.now().strftime("%Y-%m-%d")
+                directory_parts.append(current_date)
+            
+            # Combine directory parts with filename
+            if directory_parts:
+                full_path = "/".join(directory_parts) + "/" + filename
+            else:
+                full_path = filename
+            
+            return (full_path,)
+            
+        except Exception as e:
+            raise Exception(f"Filename generation failed: {str(e)}")
+
+
 # A dictionary that contains all nodes you want to export with their names
 # NOTE: names should be globally unique
 NODE_CLASS_MAPPINGS = {
     "GeminiUtilMediaDescribe": GeminiMediaDescribe,
-    "GeminiUtilOptions": GeminiUtilOptions
+    "GeminiUtilOptions": GeminiUtilOptions,
+    "FilenameGenerator": FilenameGenerator
 }
 
 # A dictionary that contains the friendly/humanly readable titles for the nodes
 NODE_DISPLAY_NAME_MAPPINGS = {
     "GeminiUtilMediaDescribe": "Gemini Util - Media Describe",
-    "GeminiUtilOptions": "Gemini Util - Options"
+    "GeminiUtilOptions": "Gemini Util - Options",
+    "FilenameGenerator": "Filename Generator"
 }

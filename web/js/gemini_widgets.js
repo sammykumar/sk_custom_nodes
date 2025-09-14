@@ -16,6 +16,191 @@ app.registerExtension({
             // The existing ComfyUI widgets are sufficient for this node
         }
 
+        // Handle FilenameGenerator node
+        else if (nodeData.name === "FilenameGenerator") {
+            console.log("Registering FilenameGenerator node");
+
+            const onNodeCreated = nodeType.prototype.onNodeCreated;
+            nodeType.prototype.onNodeCreated = function () {
+                const result = onNodeCreated?.apply(this, arguments);
+
+                // Add a preview widget to show the generated filename
+                this.addWidget(
+                    "text",
+                    "filename_preview",
+                    "",
+                    (value) => {
+                        // This is a read-only preview widget
+                    },
+                    { multiline: true }
+                );
+
+                // Function to update the filename preview
+                this.updateFilenamePreview = function () {
+                    try {
+                        // For scheduler, check if it's connected via input first
+                        let scheduler = "scheduler_input";
+                        const schedulerInput = this.inputs?.find(
+                            (input) => input.name === "scheduler"
+                        );
+                        if (schedulerInput && schedulerInput.link) {
+                            scheduler = "scheduler_connected";
+                        } else {
+                            // Fallback to widget if no connection (shouldn't happen with SAMPLER type, but for safety)
+                            const schedulerWidget = this.widgets.find(
+                                (w) => w.name === "scheduler"
+                            );
+                            if (schedulerWidget) {
+                                scheduler = schedulerWidget.value || "scheduler_input";
+                            }
+                        }
+
+                        const shift = this.widgets.find((w) => w.name === "shift")?.value || 12.0;
+                        const total_steps =
+                            this.widgets.find((w) => w.name === "total_steps")?.value || 40;
+                        const shift_step =
+                            this.widgets.find((w) => w.name === "shift_step")?.value || 25;
+                        const high_cfg =
+                            this.widgets.find((w) => w.name === "high_cfg")?.value || 3.0;
+                        const low_cfg =
+                            this.widgets.find((w) => w.name === "low_cfg")?.value || 4.0;
+                        const base_filename =
+                            this.widgets.find((w) => w.name === "base_filename")?.value || "base";
+                        const subdirectory_prefix =
+                            this.widgets.find((w) => w.name === "subdirectory_prefix")?.value || "";
+                        const add_date_subdirectory =
+                            this.widgets.find((w) => w.name === "add_date_subdirectory")?.value !==
+                            false;
+
+                        // Format float values to replace decimal points with underscores
+                        const shift_str = shift.toFixed(2).replace(".", "_");
+                        const high_cfg_str = high_cfg.toFixed(2).replace(".", "_");
+                        const low_cfg_str = low_cfg.toFixed(2).replace(".", "_");
+
+                        // Clean scheduler string to ensure it's filename-safe
+                        const scheduler_clean = scheduler
+                            .toString()
+                            .trim()
+                            .replace(/\s/g, "_")
+                            .toLowerCase();
+
+                        // Clean base filename to ensure it's filename-safe
+                        const base_clean = base_filename.toString().trim().replace(/\s/g, "_");
+
+                        // Generate the filename components
+                        const filename_parts = [
+                            base_clean,
+                            "scheduler",
+                            scheduler_clean,
+                            "shift",
+                            shift_str,
+                            "total_steps",
+                            total_steps.toString(),
+                            "shift_step",
+                            shift_step.toString(),
+                            "highCFG",
+                            high_cfg_str,
+                            "lowCFG",
+                            low_cfg_str,
+                        ];
+
+                        // Join all parts with underscores
+                        let filename = filename_parts.join("_");
+
+                        // Build directory structure with optional subdirectory prefix and date
+                        const directory_parts = [];
+
+                        // Add subdirectory prefix if provided
+                        if (subdirectory_prefix && subdirectory_prefix.trim()) {
+                            const prefix_clean = subdirectory_prefix.trim().replace(/\s/g, "_");
+                            directory_parts.push(prefix_clean);
+                        }
+
+                        // Add date subdirectory if requested
+                        if (add_date_subdirectory) {
+                            const current_date = new Date().toISOString().split("T")[0]; // YYYY-MM-DD format
+                            directory_parts.push(current_date);
+                        }
+
+                        // Combine directory parts with filename
+                        let full_path;
+                        if (directory_parts.length > 0) {
+                            full_path = directory_parts.join("/") + "/" + filename;
+                        } else {
+                            full_path = filename;
+                        }
+
+                        // Update the preview widget
+                        const previewWidget = this.widgets.find(
+                            (w) => w.name === "filename_preview"
+                        );
+                        if (previewWidget) {
+                            previewWidget.value = `Preview:\n${full_path}`;
+                        }
+                    } catch (error) {
+                        console.log("Error updating filename preview:", error);
+                        const previewWidget = this.widgets.find(
+                            (w) => w.name === "filename_preview"
+                        );
+                        if (previewWidget) {
+                            previewWidget.value = "Preview:\nError generating filename";
+                        }
+                    }
+                };
+
+                // Set up listeners for all input widgets to update the preview
+                const inputWidgetNames = [
+                    "shift",
+                    "total_steps",
+                    "shift_step",
+                    "high_cfg",
+                    "low_cfg",
+                    "base_filename",
+                    "subdirectory_prefix",
+                    "add_date_subdirectory",
+                ];
+
+                for (const widgetName of inputWidgetNames) {
+                    const widget = this.widgets.find((w) => w.name === widgetName);
+                    if (widget) {
+                        const originalCallback = widget.callback;
+                        widget.callback = (...args) => {
+                            if (originalCallback) {
+                                originalCallback.apply(widget, args);
+                            }
+                            // Update preview after a small delay to ensure the value is set
+                            setTimeout(() => this.updateFilenamePreview(), 10);
+                        };
+                    }
+                }
+
+                // Listen for input connections/disconnections to update preview
+                const originalOnConnectionsChange = this.onConnectionsChange;
+                this.onConnectionsChange = function (type, slotIndex, connected, linkInfo, ioSlot) {
+                    if (originalOnConnectionsChange) {
+                        originalOnConnectionsChange.call(
+                            this,
+                            type,
+                            slotIndex,
+                            connected,
+                            linkInfo,
+                            ioSlot
+                        );
+                    }
+                    // Update preview when scheduler input changes
+                    if (type === 1 && ioSlot && ioSlot.name === "scheduler") {
+                        // type 1 = input
+                        setTimeout(() => this.updateFilenamePreview(), 10);
+                    }
+                };
+
+                // Initial preview update
+                setTimeout(() => this.updateFilenamePreview(), 100);
+
+                return result;
+            };
+        }
+
         // Handle GeminiUtilMediaDescribe node
         else if (nodeData.name === "GeminiUtilMediaDescribe") {
             console.log("Registering GeminiUtilMediaDescribe node with dynamic media widgets");
