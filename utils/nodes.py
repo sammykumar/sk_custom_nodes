@@ -153,8 +153,8 @@ Begin with a gendered noun phrase (e.g., "A woman…", "A man…")."""
 Include hairstyle and its texture or motion (no color or length)."""
 
                 subject_prompt += """
-Include makeup, posture, gestures as applicable.
-Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height."""
+Include posture, gestures as applicable.
+Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, height, or makeup."""
 
                 # Build cinematic aesthetic paragraph
                 if describe_bokeh:
@@ -407,8 +407,8 @@ Begin with a gendered noun phrase (e.g., "A woman…", "A man…")."""
 Include hairstyle and its texture or motion (no color or length)."""
 
             subject_prompt += """
-Include makeup, posture, gestures as applicable.
-Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, or height."""
+Include posture, gestures as applicable.
+Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, height, or makeup."""
 
             # Build clothing paragraph (conditional)
             if describe_clothing:
