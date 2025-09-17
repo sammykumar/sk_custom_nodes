@@ -47,6 +47,9 @@ Tags = []
 Repository = "https://github.com/sammykumar/sk_custom_nodes"
 includes = ["dist/"]
 
+[tool.setuptools]
+packages = ["utils", "web"]
+
 [tool.setuptools.package-data]
 "*" = ["*.*"]
 
