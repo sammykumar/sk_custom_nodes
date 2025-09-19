@@ -52,6 +52,10 @@ class GeminiUtilOptions:
                     "default": "Yes", 
                     "tooltip": "Whether to include depth of field effects, bokeh, and blur descriptions"
                 }),
+                "describe_subject": (["Yes", "No"], {
+                    "default": "Yes",
+                    "tooltip": "Whether to include subject/person descriptions in the first paragraph"
+                }),
                 "prefix_text": ("STRING", {
                     "multiline": True,
                     "default": "",
@@ -65,7 +69,7 @@ class GeminiUtilOptions:
     FUNCTION = "create_options"
     CATEGORY = "Gemini"
 
-    def create_options(self, gemini_api_key, gemini_model, model_type, describe_clothing, describe_hair_style, describe_bokeh, prefix_text):
+    def create_options(self, gemini_api_key, gemini_model, model_type, describe_clothing, describe_hair_style, describe_bokeh, describe_subject, prefix_text):
         """
         Create an options object with all the configuration settings
         """
@@ -76,6 +80,7 @@ class GeminiUtilOptions:
             "describe_clothing": describe_clothing == "Yes",
             "describe_hair_style": describe_hair_style == "Yes", 
             "describe_bokeh": describe_bokeh == "Yes",
+            "describe_subject": describe_subject == "Yes",
             "prefix_text": prefix_text
         }
         return (options,)
@@ -88,6 +93,14 @@ class GeminiMediaDescribe:
 
     def __init__(self):
         pass
+
+    def _ordinal(self, n):
+        """Convert number to ordinal string (1->First, 2->Second, etc.)"""
+        ordinals = ["", "First", "Second", "Third", "Fourth", "Fifth", "Sixth"]
+        if n < len(ordinals):
+            return ordinals[n]
+        else:
+            return f"{n}th"
 
     def _trim_video(self, input_path, output_path, duration):
         """
@@ -136,49 +149,69 @@ class GeminiMediaDescribe:
             print("FFmpeg not found. Please install ffmpeg to use duration trimming.")
             return False
 
-    def _process_image(self, gemini_api_key, gemini_model, model_type, describe_clothing, describe_hair_style, describe_bokeh, prefix_text, image, selected_media_path, media_info_text):
+    def _process_image(self, gemini_api_key, gemini_model, model_type, describe_clothing, describe_hair_style, describe_bokeh, describe_subject, prefix_text, image, selected_media_path, media_info_text):
         """
         Process image using logic from GeminiImageDescribe
         """
         try:
             # Build system prompt based on individual options
             if model_type == "Text2Image":
-                # Start with base subject paragraph prompt
-                subject_prompt = """SUBJECT (First Paragraph)
+                # Initialize prompt components
+                prompts = []
+                paragraph_num = 1
+
+                # Subject paragraph (conditional)
+                if describe_subject:
+                    subject_prompt = f"""SUBJECT ({self._ordinal(paragraph_num)} Paragraph)
 Begin with a gendered noun phrase (e.g., "A woman…", "A man…")."""
 
-                # Add hair style description if enabled
-                if describe_hair_style:
-                    subject_prompt += """
+                    # Add hair style description if enabled
+                    if describe_hair_style:
+                        subject_prompt += """
 Include hairstyle and its texture or motion (no color or length)."""
 
-                subject_prompt += """
+                    subject_prompt += """
 Include posture, gestures as applicable.
 Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, height, or makeup."""
 
+                    prompts.append(subject_prompt)
+                    paragraph_num += 1
+
                 # Build cinematic aesthetic paragraph
                 if describe_bokeh:
-                    cinematic_prompt = """CINEMATIC AESTHETIC CONTROL (Second Paragraph)
+                    cinematic_prompt = f"""CINEMATIC AESTHETIC CONTROL ({self._ordinal(paragraph_num)} Paragraph)
 Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable."""
                 else:
-                    cinematic_prompt = """CINEMATIC AESTHETIC CONTROL (Second Paragraph)
+                    cinematic_prompt = f"""CINEMATIC AESTHETIC CONTROL ({self._ordinal(paragraph_num)} Paragraph)
 Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), and exposure/render cues as applicable. Everything must be in sharp focus with no depth of field effects, bokeh, or blur. Do not mention optics, DOF, rack focus, or any depth-related visual effects."""
 
+                prompts.append(cinematic_prompt)
+                paragraph_num += 1
+
                 # Style paragraph
-                style_prompt = """STYLIZATION & TONE (Third Paragraph)
+                style_prompt = f"""STYLIZATION & TONE ({self._ordinal(paragraph_num)} Paragraph)
 Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.)."""
 
+                prompts.append(style_prompt)
+                paragraph_num += 1
+
                 # Clothing paragraph (conditional)
+                clothing_prompt = ""
                 if describe_clothing:
-                    clothing_prompt = """
-CLOTHING (Fourth Paragraph)
+                    clothing_prompt = f"""
+CLOTHING ({self._ordinal(paragraph_num)} Paragraph)
 Describe all visible clothing and accessories with absolute certainty and definitiveness. Be specific: identify garment type with confidence, state definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Make decisive choices when multiple interpretations are possible - choose one specific description and state it as fact. Do not describe any text, typography, words, letters, logos, brand names, or written content visible on clothing or accessories. Exclude tattoos, glasses, and other prohibited attributes."""
-                    paragraph_count = 4
-                    critical_note = "CRITICAL: Output exactly 4 paragraphs, one per category, separated by a blank line."
-                else:
-                    clothing_prompt = ""
-                    paragraph_count = 3
-                    critical_note = "CRITICAL: Output exactly 3 paragraphs, one per category, separated by a blank line. DO NOT describe clothing, accessories, or garments in any paragraph."
+                    paragraph_num += 1
+
+                paragraph_count = paragraph_num - 1
+
+                # Build critical note based on what's included
+                critical_note = f"CRITICAL: Output exactly {paragraph_count} paragraphs, one per category, separated by a blank line."
+
+                if not describe_clothing:
+                    critical_note += " DO NOT describe clothing, accessories, or garments in any paragraph."
+                if not describe_subject:
+                    critical_note += " DO NOT describe people, subjects, or human figures in any paragraph."
 
                 # Add bokeh restriction if needed
                 if not describe_bokeh:
@@ -187,6 +220,8 @@ Describe all visible clothing and accessories with absolute certainty and defini
                 critical_note += " Never mention prohibited attributes, even if visible. Be completely decisive and definitive in all descriptions - eliminate all uncertainty language including 'appears to be', 'seems to be', 'might be', 'possibly', 'likely', 'or', 'either/or'. When multiple interpretations are possible, confidently choose one and state it as absolute fact."
 
                 # Combine all parts
+                combined_prompts = "\n\n".join(prompts)
+
                 system_prompt = f"""Generate a Wan 2.2 optimized text to image prompt. You are an expert assistant specialized in analyzing and verbalizing input media for instagram-quality posts using the Wan 2.2 Text to Image workflow.
 
 DECISIVENESS REQUIREMENT: Always provide definitive, certain descriptions. When you see something that could be described multiple ways, make a confident choice and state it as fact. Never use uncertain language like "appears to be", "seems to be", "might be", "possibly", "likely", or "or". Instead of "holding a black folder or book", write "holding a black folder". Instead of "wearing what appears to be denim", write "wearing dark blue denim jeans".
@@ -194,11 +229,7 @@ DECISIVENESS REQUIREMENT: Always provide definitive, certain descriptions. When 
 Before writing, silently review the provided media. Do not use meta phrases (e.g., "this picture shows").
 Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
 
-{subject_prompt}
-
-{cinematic_prompt}
-
-{style_prompt}{clothing_prompt}
+{combined_prompts}{clothing_prompt}
 
 {critical_note}"""
                 user_prompt = f"Please analyze this image and provide a detailed description following the {paragraph_count}-paragraph structure outlined in the system prompt."
@@ -211,19 +242,33 @@ Generate descriptions that adhere to the following structured layers and constra
                 else:
                     focus_safeguards = ""
 
-                hair_instruction = "hairstyle and " if describe_hair_style else ""
-                clothing_instruction = "outfit style" if describe_clothing else ""
-                traits_list = [item for item in [hair_instruction, clothing_instruction, "pose, posture"] if item]
-                traits_instruction = ", ".join(traits_list) if traits_list else "pose and posture only"
-
+                # Build traits list based on options
+                traits_list = []
+                if describe_hair_style:
+                    traits_list.append("hairstyle and")
                 if describe_clothing:
-                    clothing_note = f"describe {traits_instruction} (without age, ethnicity, tattoos, hair color, etc.)"
-                else:
-                    clothing_note = f"describe {traits_instruction} only (avoid clothing, age, ethnicity, tattoos, hair color, etc.)"
+                    traits_list.append("outfit style")
 
-                system_prompt = f"""You are an expert assistant generating concise, single-sentence Qwen-Image-Edit instructions. Always be completely decisive and definitive - when you see something that could be described multiple ways, make a confident choice and state it as fact. Never use uncertain language like "appears to be", "seems to be", "might be", "possibly", "likely", or "or". Instead of "holding a black folder or book", write "holding a black folder".
+                if describe_subject:
+                    traits_list.append("pose, posture")
+                    traits_instruction = ", ".join(traits_list) if traits_list else "pose and posture only"
+
+                    if describe_clothing:
+                        clothing_note = f"describe {traits_instruction} (without age, ethnicity, tattoos, hair color, etc.)"
+                    else:
+                        clothing_note = f"describe {traits_instruction} only (avoid clothing, age, ethnicity, tattoos, hair color, etc.)"
+
+                    system_prompt = f"""You are an expert assistant generating concise, single-sentence Qwen-Image-Edit instructions. Always be completely decisive and definitive - when you see something that could be described multiple ways, make a confident choice and state it as fact. Never use uncertain language like "appears to be", "seems to be", "might be", "possibly", "likely", or "or". Instead of "holding a black folder or book", write "holding a black folder".
 
 Always begin with "Make this person…", include vivid, focused scene details (e.g. bedroom props, lights, furniture or gym bench, textured wall, window views) early to anchor the setting{"," if focus_instruction else ""} {focus_instruction}, {clothing_note}, include clear torso and head orientation (e.g., "back facing the camera with torso turned 45° and head looking over her shoulder toward viewer"), reference cinematic aesthetic cues (lighting, framing, lens, shot type), anchor realism by stating skin shows subtle pores, light wrinkles, and realistic surface detail, end with "keep everything else unchanged," and include negative safeguards like "no distortion, no blur artifacts{focus_safeguards}.\""""
+                else:
+                    # No subject description - focus on environment/scene only
+                    traits_instruction = ", ".join(traits_list) if traits_list else "environment details only"
+
+                    system_prompt = f"""You are an expert assistant generating concise, single-sentence Qwen-Image-Edit instructions. Always be completely decisive and definitive - when you see something that could be described multiple ways, make a confident choice and state it as fact. Never use uncertain language like "appears to be", "seems to be", "might be", "possibly", "likely", or "or".
+
+Focus on vivid, focused scene details (e.g. bedroom props, lights, furniture or gym bench, textured wall, window views) to anchor the setting{"," if focus_instruction else ""} {focus_instruction}, do not describe people or human subjects, reference cinematic aesthetic cues (lighting, framing, lens, shot type), end with "keep everything else unchanged," and include negative safeguards like "no distortion, no blur artifacts{focus_safeguards}.\""""
+
                 user_prompt = "Please analyze this image and generate a single-sentence Qwen-Image-Edit instruction following the guidelines in the system prompt."
 
             # Convert image to bytes for Gemini
@@ -291,7 +336,8 @@ Always begin with "Make this person…", include vivid, focused scene details (e
             cache_options = {
                 "describe_clothing": describe_clothing,
                 "describe_hair_style": describe_hair_style,
-                "describe_bokeh": describe_bokeh
+                "describe_bokeh": describe_bokeh,
+                "describe_subject": describe_subject
             }
 
             cached_result = cache.get(
@@ -391,76 +437,90 @@ Always begin with "Make this person…", include vivid, focused scene details (e
             # Re-raise the exception to stop workflow execution
             raise Exception(f"Image analysis failed: {str(e)}")
 
-    def _process_video(self, gemini_api_key, gemini_model, describe_clothing, describe_hair_style, describe_bokeh, prefix_text, selected_media_path, frame_rate, max_duration, media_info_text):
+    def _process_video(self, gemini_api_key, gemini_model, describe_clothing, describe_hair_style, describe_bokeh, describe_subject, prefix_text, selected_media_path, frame_rate, max_duration, media_info_text):
         """
         Process video using logic from GeminiVideoDescribe
         """
         try:
             # Build system prompt based on individual options for video
-            # Start with base subject paragraph prompt
-            subject_prompt = """1. SUBJECT (First Paragraph)
+            # Initialize paragraph tracking
+            paragraph_num = 1
+            prompts = []
+
+            # Subject paragraph (conditional)
+            if describe_subject:
+                subject_prompt = f"""{paragraph_num}. SUBJECT ({self._ordinal(paragraph_num)} Paragraph)
 Begin with a gendered noun phrase (e.g., "A woman…", "A man…")."""
 
-            # Add hair style description if enabled
-            if describe_hair_style:
-                subject_prompt += """
+                # Add hair style description if enabled
+                if describe_hair_style:
+                    subject_prompt += """
 Include hairstyle and its texture or motion (no color or length)."""
 
-            subject_prompt += """
+                subject_prompt += """
 Include posture, gestures as applicable.
 Strictly exclude any reference to ethnicity, age, body type, tattoos, glasses, hair color, hair length, eye color, height, or makeup."""
 
+                prompts.append(subject_prompt)
+                paragraph_num += 1
+
             # Build clothing paragraph (conditional)
             if describe_clothing:
-                clothing_prompt = """
-2. CLOTHING (Second Paragraph)
+                clothing_prompt = f"""
+{paragraph_num}. CLOTHING ({self._ordinal(paragraph_num)} Paragraph)
 Describe all visible clothing and accessories with absolute certainty and definitiveness. Be specific: identify garment type with confidence, state definitive color(s), material/texture, fit/silhouette, length, notable construction (seams, straps, waistbands), and condition. Include footwear if visible and describe exactly how fabrics respond to motion (stretching, swaying, tightening, wrinkling). Make decisive choices when multiple interpretations are possible - choose one specific description and state it as fact. Do not describe any text, typography, words, letters, logos, brand names, or written content visible on clothing or accessories. Exclude tattoos, glasses, and other prohibited attributes."""
-                scene_num = "3"
-                movement_num = "4"
-                cinematic_num = "5"
-                style_num = "6"
-                paragraph_count = 6
+                paragraph_num += 1
             else:
                 clothing_prompt = ""
-                scene_num = "2"
-                movement_num = "3"
-                cinematic_num = "4"
-                style_num = "5"
-                paragraph_count = 5
 
             # Scene paragraph
             scene_prompt = f"""
-{scene_num}. SCENE ({["Second", "Third"][0 if not describe_clothing else 1]} Paragraph)
+{paragraph_num}. SCENE ({self._ordinal(paragraph_num)} Paragraph)
 Describe the visible environment clearly and vividly."""
+            prompts.append(scene_prompt)
+            paragraph_num += 1
 
             # Movement paragraph
             movement_prompt = f"""
-{movement_num}. MOVEMENT ({["Third", "Fourth"][0 if not describe_clothing else 1]} Paragraph)
+{paragraph_num}. MOVEMENT ({self._ordinal(paragraph_num)} Paragraph)
 In this paragraph, describe body-part–specific movement and how it aligns with musical rhythm and beat structure. Begin with an overall summary: e.g., 'The subject initiates with a hip sway on the downbeat…'. Then narrate movement chronologically, using precise action verbs and transitions like 'then', 'as', and 'after', referencing the timeline (e.g., early/mid/late beat or second). Specify which body parts move, how they articulate (e.g., 'the right arm lifts upward, then sweeps outward; the torso tilts as the knees bend'), describe footwork, weight shifts, and alignment with music beats. Also include any camera movement (e.g., 'camera pans to follow the torso shift'). Avoid general labels—focus on locomotor and non‑locomotor gestures, repetition, rhythm, and choreography phrasing. Always include any buttock or breast movements that you see"""
+            prompts.append(movement_prompt)
+            paragraph_num += 1
 
             # Build cinematic aesthetic paragraph
             if describe_bokeh:
                 cinematic_prompt = f"""
-{cinematic_num}. CINEMATIC AESTHETIC CONTROL ({["Fourth", "Fifth"][0 if not describe_clothing else 1]} Paragraph)
+{paragraph_num}. CINEMATIC AESTHETIC CONTROL ({self._ordinal(paragraph_num)} Paragraph)
 Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), optics (lens feel, DOF, rack focus), and exposure/render cues as applicable."""
             else:
                 cinematic_prompt = f"""
-{cinematic_num}. CINEMATIC AESTHETIC CONTROL ({["Fourth", "Fifth"][0 if not describe_clothing else 1]} Paragraph)
+{paragraph_num}. CINEMATIC AESTHETIC CONTROL ({self._ordinal(paragraph_num)} Paragraph)
 Lighting (source/direction/quality/temperature), camera details (shot type, angle/height, movement), and exposure/render cues as applicable. Everything must be in sharp focus with no depth of field effects, bokeh, or blur. Do not mention optics, DOF, rack focus, or any depth-related visual effects."""
+
+            prompts.append(cinematic_prompt)
+            paragraph_num += 1
 
             # Style paragraph
             style_prompt = f"""
-{style_num}. STYLIZATION & TONE ({["Fifth", "Sixth"][0 if not describe_clothing else 1]} Paragraph)
+{paragraph_num}. STYLIZATION & TONE ({self._ordinal(paragraph_num)} Paragraph)
 Mood/genre descriptors (e.g., "noir-inspired silhouette," "cinematic realism," etc.)."""
+            prompts.append(style_prompt)
 
+            paragraph_count = paragraph_num
+
+            # Build critical note based on what's included
             critical_note = f"CRITICAL: Output exactly {paragraph_count} paragraphs, one per category, separated by a blank line."
             if not describe_clothing:
                 critical_note += " DO NOT describe clothing, accessories, or garments in any paragraph."
+            if not describe_subject:
+                critical_note += " DO NOT describe people, subjects, or human figures in any paragraph."
             if not describe_bokeh:
                 critical_note += " Never mention depth of field, bokeh, blur, optics, DOF, rack focus, or any depth-related visual effects."
             critical_note += " Never mention prohibited attributes, even if visible. Be completely decisive and definitive in all descriptions - eliminate all uncertainty language including 'appears to be', 'seems to be', 'might be', 'possibly', 'likely', 'or', 'either/or'. When multiple interpretations are possible, confidently choose one and state it as absolute fact."
 
             # Combine all parts
+            combined_prompts = "\n".join(prompts)
+
             system_prompt = f"""You are an expert assistant specialized in analyzing and verbalizing input videos for cinematic-quality video transformation using the Wan 2.2 + VACE workflow.
 
 DECISIVENESS REQUIREMENT: Always provide definitive, certain descriptions. When you see something that could be described multiple ways, make a confident choice and state it as fact. Never use uncertain language like "appears to be", "seems to be", "might be", "possibly", "likely", or "or". Instead of "holding a black folder or book", write "holding a black folder". Instead of "wearing what appears to be denim", write "wearing dark blue denim jeans".
@@ -468,7 +528,7 @@ DECISIVENESS REQUIREMENT: Always provide definitive, certain descriptions. When 
 Before writing, silently review all provided frames as a single clip and infer motion across time; reason stepwise over the entire sequence (start → middle → end). Do not use meta phrases (e.g., "this video shows").
 Generate descriptions that adhere to the following structured layers and constraints, formatting each as a SEPARATE PARAGRAPH in this exact order:
 
-{subject_prompt}{clothing_prompt}{scene_prompt}{movement_prompt}{cinematic_prompt}{style_prompt}
+{combined_prompts}{clothing_prompt}
 
 {critical_note}"""
             user_prompt = f"Please analyze this video and provide a detailed description following the {paragraph_count}-paragraph structure outlined in the system prompt."
@@ -542,7 +602,8 @@ Generate descriptions that adhere to the following structured layers and constra
             cache_options = {
                 "describe_clothing": describe_clothing,
                 "describe_hair_style": describe_hair_style,
-                "describe_bokeh": describe_bokeh
+                "describe_bokeh": describe_bokeh,
+                "describe_subject": describe_subject
             }
 
             cached_result = cache.get(
@@ -733,6 +794,7 @@ Generate descriptions that adhere to the following structured layers and constra
                 "describe_clothing": False,
                 "describe_hair_style": True,
                 "describe_bokeh": True,
+                "describe_subject": True,
                 "prefix_text": ""
             }
 
@@ -743,6 +805,7 @@ Generate descriptions that adhere to the following structured layers and constra
         describe_clothing = gemini_options["describe_clothing"]
         describe_hair_style = gemini_options["describe_hair_style"]
         describe_bokeh = gemini_options["describe_bokeh"]
+        describe_subject = gemini_options["describe_subject"]
         prefix_text = gemini_options["prefix_text"]
 
         try:
@@ -855,13 +918,13 @@ Directory scan results:
             if media_type == "image":
                 # Process as image - delegate to image logic
                 return self._process_image(
-                    gemini_api_key, gemini_model, model_type, describe_clothing, describe_hair_style, describe_bokeh, prefix_text,
+                    gemini_api_key, gemini_model, model_type, describe_clothing, describe_hair_style, describe_bokeh, describe_subject, prefix_text,
                     image, selected_media_path, media_info_text
                 )
             else:
                 # Process as video - delegate to video logic  
                 return self._process_video(
-                    gemini_api_key, gemini_model, describe_clothing, describe_hair_style, describe_bokeh, prefix_text,
+                    gemini_api_key, gemini_model, describe_clothing, describe_hair_style, describe_bokeh, describe_subject, prefix_text,
                     selected_media_path, frame_rate, max_duration, media_info_text
                 )
 
@@ -966,13 +1029,13 @@ class FilenameGenerator:
             shift_str = f"{shift:.2f}".replace(".", "_")
             high_cfg_str = f"{high_cfg:.2f}".replace(".", "_")
             low_cfg_str = f"{low_cfg:.2f}".replace(".", "_")
-            
+
             # Clean scheduler string to ensure it's filename-safe
             scheduler_clean = str(scheduler).strip().replace(" ", "_").lower()
-            
+
             # Clean base filename to ensure it's filename-safe
             base_clean = base_filename.strip().replace(" ", "_")
-            
+
             # Generate the filename components
             filename_parts = [
                 base_clean,
@@ -983,31 +1046,31 @@ class FilenameGenerator:
                 "highCFG", high_cfg_str,
                 "lowCFG", low_cfg_str
             ]
-            
+
             # Join all parts with underscores
             filename = "_".join(filename_parts)
-            
+
             # Build directory structure with optional subdirectory prefix and date
             directory_parts = []
-            
+
             # Add subdirectory prefix if provided
             if subdirectory_prefix and subdirectory_prefix.strip():
                 prefix_clean = subdirectory_prefix.strip().replace(" ", "_")
                 directory_parts.append(prefix_clean)
-            
+
             # Add date subdirectory if requested
             if add_date_subdirectory:
                 current_date = datetime.now().strftime("%Y-%m-%d")
                 directory_parts.append(current_date)
-            
+
             # Combine directory parts with filename
             if directory_parts:
                 full_path = "/".join(directory_parts) + "/" + filename
             else:
                 full_path = filename
-            
+
             return (full_path,)
-            
+
         except Exception as e:
             raise Exception(f"Filename generation failed: {str(e)}")
 
