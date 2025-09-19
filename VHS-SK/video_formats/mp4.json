@@ -1,0 +1,9 @@
+{
+    "main_pass": [
+        "-c:v", "libx264",
+        "-crf", ["crf", "INT", {"default": 23, "min": 0, "max": 51, "step": 1}],
+        "-pix_fmt", "yuv420p"
+    ],
+    "audio_pass": ["-c:a", "aac"],
+    "extension": "mp4"
+}
